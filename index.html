@@ -544,7 +544,7 @@
         </button>
       </div>
 
-      <!-- Stats (always show TOTAL counts) -->
+      <!-- Stats (dynamic per shift) -->
       <div class="stats-row">
         <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
           <span class="label">Under 6.5h</span>
@@ -596,7 +596,7 @@
        CONFIGURATION
        ========================================= */
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5sUvifNlxDduQCtcNek-UY3RlhhcQUhkfDKDwRxub_BgbriFIVSpiNgknLsgKVn9T7A/exec';
-    const AUTO_REFRESH_MS = 60000; // كل دقيقة
+    const AUTO_REFRESH_MS = 60000;
 
     /* =========================================
        APP STATE & CLASSES
@@ -612,7 +612,13 @@
           currentCategory: '',
           isLoading: false,
           lastUpdated: null,
-          totalCounts: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 }
+          // Counts per shift: all, morning, night, overnight
+          shiftCounts: {
+            all: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
+            morning: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
+            night: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
+            overnight: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 }
+          }
         };
         this.autoRefreshTimer = null;
         this.init();
@@ -702,8 +708,7 @@
       showDashboard() {
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('dashboard-view').style.display = 'flex';
-        this.loadDashboardData(true); // manual = show loading
-        // Auto refresh in background (silent)
+        this.loadDashboardData(true);
         this.autoRefreshTimer = setInterval(() => {
           this.loadDashboardData(false);
         }, AUTO_REFRESH_MS);
@@ -870,10 +875,25 @@
 
         this.state.processed = processed;
 
-        // Calculate TOTAL counts (always shown in stat cards)
+        // Calculate counts per shift
         const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
-        cats.forEach(cat => {
-          this.state.totalCounts[cat] = processed.filter(r => r.category === cat).length;
+        const shiftKeys = ['all', 'morning', 'night', 'overnight'];
+
+        // Reset
+        shiftKeys.forEach(sk => {
+          cats.forEach(c => this.state.shiftCounts[sk][c] = 0);
+        });
+
+        // Count all
+        cats.forEach(c => {
+          this.state.shiftCounts.all[c] = processed.filter(r => r.category === c).length;
+        });
+
+        // Count per shift
+        cats.forEach(c => {
+          this.state.shiftCounts.morning[c] = processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'morning').length;
+          this.state.shiftCounts.night[c] = processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'night').length;
+          this.state.shiftCounts.overnight[c] = processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'overnight').length;
         });
 
         // 7. Calculate Repeated Under 6.5
@@ -889,6 +909,14 @@
         this.state.repeated = Object.values(underMap)
           .filter(u => u.count > 1)
           .sort((a, b) => b.count - a.count);
+      }
+
+      getShiftKey(shiftValue) {
+        const s = (shiftValue || '').toString().trim().toUpperCase();
+        if (s === 'M') return 'morning';
+        if (s === 'N') return 'night';
+        if (s === 'ON') return 'overnight';
+        return 'unknown';
       }
 
       populateDateFilter() {
@@ -919,11 +947,14 @@
           cardsView.style.display = 'none';
           repeatedView.style.display = 'block';
           this.renderRepeated();
+          // Hide stats on repeated view
+          document.querySelector('.stats-row').style.display = 'none';
           return;
         }
 
         cardsView.style.display = 'block';
         repeatedView.style.display = 'none';
+        document.querySelector('.stats-row').style.display = 'grid';
         this.applyDateFilter();
       }
 
@@ -988,8 +1019,8 @@
 
         this.state.filtered = data;
         this.renderCards();
-        // Stats always show TOTAL counts, not filtered
-        this.renderTotalStats();
+        // Render stats based on CURRENT shift
+        this.renderStats();
       }
 
       parseDate(dateStr) {
@@ -1008,19 +1039,19 @@
         this.applyDateFilter();
       }
 
-      renderTotalStats() {
-        // Always show total counts from processed data
-        document.getElementById('stat-under').textContent = this.state.totalCounts['under-6.5'];
-        document.getElementById('stat-base').textContent = this.state.totalCounts['base-6.5-8'];
-        document.getElementById('stat-ot2').textContent = this.state.totalCounts['ot-2hr'];
-        document.getElementById('stat-ot4').textContent = this.state.totalCounts['ot-4hr'];
+      renderStats() {
+        const shift = this.state.currentShift;
+        const counts = this.state.shiftCounts[shift] || this.state.shiftCounts.all;
+        document.getElementById('stat-under').textContent = counts['under-6.5'];
+        document.getElementById('stat-base').textContent = counts['base-6.5-8'];
+        document.getElementById('stat-ot2').textContent = counts['ot-2hr'];
+        document.getElementById('stat-ot4').textContent = counts['ot-4hr'];
       }
 
       renderCards() {
         const container = document.getElementById('cards-container');
         container.innerHTML = '';
 
-        // Group by user
         const grouped = {};
         this.state.filtered.forEach(r => {
           if (!grouped[r.user]) grouped[r.user] = [];
