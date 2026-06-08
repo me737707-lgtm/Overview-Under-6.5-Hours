@@ -269,6 +269,11 @@
     .stat-card .value {
       font-size: 32px; font-weight: 400; color: var(--md-sys-color-on-surface);
     }
+    /* ✅ FIX: sub-label for context under the number */
+    .stat-card .sub-label {
+      font-size: 10px; color: var(--md-sys-color-on-surface-variant);
+      letter-spacing: 0.3px;
+    }
     .stat-card[data-cat="under-6.5"] { border-left: 4px solid var(--md-sys-color-error); }
     .stat-card[data-cat="base-6.5-8"] { border-left: 4px solid var(--md-sys-color-primary); }
     .stat-card[data-cat="ot-2hr"] { border-left: 4px solid var(--md-sys-color-secondary); }
@@ -392,6 +397,19 @@
     }
     #repeated-view h3 {
       margin-bottom: 20px; color: var(--md-sys-color-on-surface);
+    }
+
+    /* ✅ Debug info banner */
+    .debug-banner {
+      background: var(--md-sys-color-surface-variant);
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--radius-small);
+      padding: 8px 16px; margin-bottom: 16px;
+      font-size: 11px; color: var(--md-sys-color-on-surface-variant);
+      display: flex; gap: 24px; flex-wrap: wrap;
+    }
+    .debug-banner span strong {
+      color: var(--md-sys-color-primary);
     }
 
     @media (max-width: 1200px) {
@@ -530,22 +548,35 @@
         </button>
       </div>
 
+      <!-- ✅ NEW: Debug info banner showing data counts -->
+      <div class="debug-banner" id="debug-banner" style="display:none;">
+        <span>Raw Active Time Rows: <strong id="dbg-raw">0</strong></span>
+        <span>Unique User-Days: <strong id="dbg-userdays">0</strong></span>
+        <span>Matched Attendance: <strong id="dbg-matched">0</strong></span>
+        <span>Unmatched (excluded): <strong id="dbg-unmatched">0</strong></span>
+        <span>Processed Records: <strong id="dbg-processed">0</strong></span>
+      </div>
+
       <div class="stats-row">
         <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
           <span class="label">Under 6.5h</span>
           <span class="value" id="stat-under">0</span>
+          <span class="sub-label" id="stat-under-sub">unique users</span>
         </div>
         <div class="stat-card" data-cat="base-6.5-8" onclick="app.filterByCategory('base-6.5-8')">
           <span class="label">Base Shift 6.5-8h</span>
           <span class="value" id="stat-base">0</span>
+          <span class="sub-label" id="stat-base-sub">unique users</span>
         </div>
         <div class="stat-card" data-cat="ot-2hr" onclick="app.filterByCategory('ot-2hr')">
           <span class="label">OT 8-10h</span>
           <span class="value" id="stat-ot2">0</span>
+          <span class="sub-label" id="stat-ot2-sub">unique users</span>
         </div>
         <div class="stat-card" data-cat="ot-4hr" onclick="app.filterByCategory('ot-4hr')">
           <span class="label">OT 10-12h</span>
           <span class="value" id="stat-ot4">0</span>
+          <span class="sub-label" id="stat-ot4-sub">unique users</span>
         </div>
       </div>
 
@@ -580,6 +611,9 @@
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5sUvifNlxDduQCtcNek-UY3RlhhcQUhkfDKDwRxub_BgbriFIVSpiNgknLsgKVn9T7A/exec';
     const AUTO_REFRESH_MS = 60000;
 
+    // ✅ VALID ATTENDANCE CODES — only these count as "present"
+    const VALID_ATTENDANCE = ['P', 'PT', 'TP'];
+
     class App {
       constructor() {
         this.state = {
@@ -590,7 +624,8 @@
           currentShift: 'all',
           currentCategory: '',
           isLoading: false,
-          lastUpdated: null
+          lastUpdated: null,
+          debugStats: { rawRows: 0, userDays: 0, matched: 0, unmatched: 0 }
         };
         this.autoRefreshTimer = null;
         this.init();
@@ -617,7 +652,7 @@
         });
 
         document.querySelectorAll('.nav-item').forEach(btn => {
-          btn.addEventListener('click', (e) => {
+          btn.addEventListener('click', () => {
             const shift = btn.dataset.shift;
             this.setActiveNav(btn);
             this.filterByShift(shift);
@@ -725,79 +760,119 @@
         document.getElementById('last-updated').textContent = 'Last updated: ' + timeStr + ' (Auto-refresh ON)';
       }
 
+      // ✅ FIX: Format date string to match attendance header format (e.g. "1-Jun")
+      fmtDate(dStr) {
+        if (!dStr) return '';
+        // Handle "2026, 06-01" or "2026-06-01" format from Active Time sheet
+        const m = dStr.match(/(\d{4})[,\s-]+(\d{1,2})[,\s-]+(\d{1,2})/);
+        if (m) {
+          const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+          // Format: "1-Jun" (no leading zero on day)
+          return d.getDate() + '-' + d.toLocaleString('en', { month: 'short' });
+        }
+        return dStr;
+      }
+
       processData() {
         const { activeTime, teams, attendance } = this.state.raw;
 
-        // 1. Teams Map
+        // ── 1. Build Teams map ───────────────────────────────────────────────
         const teamsMap = new Map();
         const teamsOrder = [];
         teams.forEach(row => {
-          const user = row[0].toString().toLowerCase().trim();
+          const user = row[0] ? row[0].toString().toLowerCase().trim() : '';
+          if (!user) return;
           teamsOrder.push(user);
           teamsMap.set(user, {
-            tlQtc: row[1] || '',
-            shift: row[2] || '',
-            pcNo: row[3] || '',
+            tlQtc:    row[1] || '',
+            shift:    row[2] || '',
+            pcNo:     row[3] || '',
             location: row[4] || ''
           });
         });
 
-        // 2. Sum C+D per user per date
+        // ── 2. Sum Interact + Overhead columns per user per date ─────────────
+        // Active Time columns: [0]=Date [1]=User [2]=MSL Interact [3]=MSL Overhead ...
         const userDayMap = new Map();
-        const datesSet = new Set();
+        const datesSet   = new Set();
 
         activeTime.forEach(row => {
-          const date = row[0] ? row[0].toString().trim() : '';
-          const user = row[1] ? row[1].toString().toLowerCase().trim() : '';
+          const dateRaw = row[0] ? row[0].toString().trim() : '';
+          const user    = row[1] ? row[1].toString().toLowerCase().trim() : '';
           const interact = parseFloat(row[2]) || 0;
           const overhead = parseFloat(row[3]) || 0;
-          const total = interact + overhead;
+          const total    = interact + overhead;
 
-          if (!date || !user) return;
-          datesSet.add(date);
+          if (!dateRaw || !user) return;
+          datesSet.add(dateRaw);
 
-          const key = user + '|' + date;
+          const key = user + '|' + dateRaw;
           if (!userDayMap.has(key)) {
-            userDayMap.set(key, { user, date, hours: 0, attendance: '', attendanceTab: '' });
+            userDayMap.set(key, {
+              user,
+              date:         dateRaw,
+              dateFmt:      this.fmtDate(dateRaw),   // ✅ pre-format once
+              hours:        0,
+              attendance:   '',
+              attendanceTab: ''
+            });
           }
           userDayMap.get(key).hours += total;
         });
 
-        // 3. Format date for attendance matching
-        const fmtDate = (dStr) => {
-          const m = dStr.match(/(\d{4})[,\s-]+(\d{2})[,\s-]+(\d{2})/);
-          if (m) {
-            const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
-            return d.getDate() + '-' + d.toLocaleString('en', { month: 'short' });
-          }
-          return dStr;
-        };
+        // Track raw counts for debug
+        this.state.debugStats.rawRows  = activeTime.length;
+        this.state.debugStats.userDays = userDayMap.size;
 
-        // 4. Match Attendance - check ALL tabs for each user
-        userDayMap.forEach((val) => {
-          const target = fmtDate(val.date);
-          
+        // ── 3. Match attendance for each user-day across all 3 tabs ──────────
+        // Build a fast lookup: tabName → Map<formattedDate, colIndex>
+        const attColIndex = {};
+        for (const [tabName, tabData] of Object.entries(attendance)) {
+          if (!tabData || !tabData.headers) continue;
+          attColIndex[tabName] = new Map();
+          tabData.headers.forEach((h, i) => {
+            if (h) attColIndex[tabName].set(h.toString().trim(), i);
+          });
+        }
+
+        let matched = 0, unmatched = 0;
+
+        userDayMap.forEach(val => {
+          const target = val.dateFmt;   // e.g. "1-Jun"
+          let found = false;
+
           for (const [tabName, tabData] of Object.entries(attendance)) {
-            if (!tabData || !tabData.headers) continue;
-            const headers = tabData.headers;
-            const rows = tabData.rows;
-            const colIdx = headers.findIndex(h => h === target);
-            if (colIdx === -1) continue;
+            if (!tabData || !tabData.rows) continue;
 
-            const actualIdx = 3 + colIdx;
-            const userRow = rows.find(r => r[0] && r[0].toString().toLowerCase().trim() === val.user);
+            const colMap = attColIndex[tabName];
+            if (!colMap || !colMap.has(target)) continue;
+
+            const colIdx    = colMap.get(target);
+            const actualIdx = 3 + colIdx;   // columns A-C are user/info, data starts at D
+
+            const userRow = tabData.rows.find(r =>
+              r[0] && r[0].toString().toLowerCase().trim() === val.user
+            );
+
             if (userRow && actualIdx < userRow.length) {
               const cell = userRow[actualIdx] ? userRow[actualIdx].toString().trim() : '';
-              if (['P', 'PT', 'TP'].includes(cell)) {
-                val.attendance = cell;
+              if (VALID_ATTENDANCE.includes(cell)) {
+                val.attendance    = cell;
                 val.attendanceTab = tabName;
+                found = true;
                 break;
               }
             }
           }
+
+          if (found) matched++; else unmatched++;
         });
 
-        // 5. Sort users by Teams order
+        this.state.debugStats.matched   = matched;
+        this.state.debugStats.unmatched = unmatched;
+        this.updateDebugBanner();
+
+        // ── 4. Sort users by Teams sheet order ───────────────────────────────
         const activeUsers = [...new Set([...userDayMap.values()].map(v => v.user))];
         activeUsers.sort((a, b) => {
           const ia = teamsOrder.indexOf(a);
@@ -808,44 +883,46 @@
           return ia - ib;
         });
 
-        // 6. Build processed array
+        // ── 5. Build processed[] — ✅ ONLY include attendance-matched records ─
         const processed = [];
-        const dates = [...datesSet].sort();
+        const dates     = [...datesSet].sort();
 
         activeUsers.forEach(user => {
           const tInfo = teamsMap.get(user) || {};
           dates.forEach(date => {
-            const key = user + '|' + date;
+            const key  = user + '|' + date;
             const data = userDayMap.get(key);
             if (!data) return;
 
+            // ✅ KEY FIX: Skip users with no valid attendance match
+            if (!VALID_ATTENDANCE.includes(data.attendance)) return;
+
             const hrs = data.hours;
-            let cat = '';
-            if (hrs < 6.5) cat = 'under-6.5';
-            else if (hrs < 8) cat = 'base-6.5-8';
-            else if (hrs < 10) cat = 'ot-2hr';
-            else if (hrs < 12) cat = 'ot-4hr';
-            else cat = 'ot-4hr-plus';
+            let cat;
+            if      (hrs < 6.5)  cat = 'under-6.5';
+            else if (hrs < 8)    cat = 'base-6.5-8';
+            else if (hrs < 10)   cat = 'ot-2hr';
+            else                 cat = 'ot-4hr';
 
             processed.push({
               date,
               user,
-              userOriginal: data.user,
-              tlQtc: tInfo.tlQtc,
-              shift: tInfo.shift,
-              pcNo: tInfo.pcNo,
-              location: tInfo.location,
-              hours: parseFloat(hrs.toFixed(2)),
-              attendance: data.attendance,
+              tlQtc:        tInfo.tlQtc    || '',
+              shift:        tInfo.shift    || '',
+              pcNo:         tInfo.pcNo     || '',
+              location:     tInfo.location || '',
+              hours:        parseFloat(hrs.toFixed(2)),
+              attendance:   data.attendance,
               attendanceTab: data.attendanceTab,
-              category: cat
+              category:     cat
             });
           });
         });
 
         this.state.processed = processed;
+        this.state.debugStats.processed = processed.length;
 
-        // 7. Calculate Repeated Under 6.5
+        // ── 6. Calculate Repeated Under 6.5 ─────────────────────────────────
         const underMap = {};
         processed.filter(r => r.category === 'under-6.5').forEach(r => {
           if (!underMap[r.user]) {
@@ -860,19 +937,21 @@
           .sort((a, b) => b.count - a.count);
       }
 
-      getShiftKey(shiftValue) {
-        const s = (shiftValue || '').toString().trim().toUpperCase();
-        if (s === 'M') return 'morning';
-        if (s === 'N') return 'night';
-        if (s === 'ON') return 'overnight';
-        return 'unknown';
+      updateDebugBanner() {
+        const d = this.state.debugStats;
+        document.getElementById('dbg-raw').textContent       = d.rawRows    || 0;
+        document.getElementById('dbg-userdays').textContent  = d.userDays   || 0;
+        document.getElementById('dbg-matched').textContent   = d.matched    || 0;
+        document.getElementById('dbg-unmatched').textContent = d.unmatched  || 0;
+        document.getElementById('dbg-processed').textContent = d.processed  || 0;
+        document.getElementById('debug-banner').style.display = 'flex';
       }
 
       populateDateFilter() {
-        const select = document.getElementById('filter-date');
+        const select   = document.getElementById('filter-date');
         const currentVal = select.value;
         select.innerHTML = '<option value="">All Dates</option>';
-        
+
         const dates = [...new Set(this.state.processed.map(r => r.date))].sort();
         dates.forEach(d => {
           const opt = document.createElement('option');
@@ -880,36 +959,35 @@
           opt.textContent = d;
           select.appendChild(opt);
         });
-        
+
         if (currentVal && dates.includes(currentVal)) select.value = currentVal;
       }
 
       filterByShift(shift) {
         this.state.currentShift = shift;
-        const cardsView = document.getElementById('cards-view');
+        const cardsView   = document.getElementById('cards-view');
         const repeatedView = document.getElementById('repeated-view');
+        const statsRow    = document.querySelector('.stats-row');
+        const debugBanner = document.getElementById('debug-banner');
 
         if (shift === 'repeated') {
-          cardsView.style.display = 'none';
+          cardsView.style.display    = 'none';
           repeatedView.style.display = 'block';
+          statsRow.style.display     = 'none';
+          debugBanner.style.display  = 'none';
           this.renderRepeated();
-          document.querySelector('.stats-row').style.display = 'none';
           return;
         }
 
-        cardsView.style.display = 'block';
+        cardsView.style.display    = 'block';
         repeatedView.style.display = 'none';
-        document.querySelector('.stats-row').style.display = 'grid';
+        statsRow.style.display     = 'grid';
+        debugBanner.style.display  = 'flex';
         this.applyFilters();
       }
 
       filterByCategory(cat) {
-        const current = this.state.currentCategory;
-        if (current === cat) {
-          this.state.currentCategory = '';
-        } else {
-          this.state.currentCategory = cat;
-        }
+        this.state.currentCategory = this.state.currentCategory === cat ? '' : cat;
         this.applyFilters();
         this.updateStatCardsUI();
       }
@@ -922,9 +1000,9 @@
 
       applyFilters() {
         const singleDate = document.getElementById('filter-date').value;
-        const fromDate = document.getElementById('filter-from').value;
-        const toDate = document.getElementById('filter-to').value;
-        const category = document.getElementById('filter-category').value;
+        const fromDate   = document.getElementById('filter-from').value;
+        const toDate     = document.getElementById('filter-to').value;
+        const category   = document.getElementById('filter-category').value;
 
         let data = this.state.processed;
 
@@ -932,8 +1010,8 @@
         if (this.state.currentShift !== 'all' && this.state.currentShift !== 'repeated') {
           data = data.filter(r => {
             const s = (r.shift || '').toString().trim().toUpperCase();
-            if (this.state.currentShift === 'morning') return s === 'M';
-            if (this.state.currentShift === 'night') return s === 'N';
+            if (this.state.currentShift === 'morning')   return s === 'M';
+            if (this.state.currentShift === 'night')     return s === 'N';
             if (this.state.currentShift === 'overnight') return s === 'ON';
             return false;
           });
@@ -944,19 +1022,19 @@
           data = data.filter(r => r.date === singleDate);
         }
 
-        // Range filter
+        // Date range filter
         if (fromDate || toDate) {
           data = data.filter(r => {
-            const d = this.parseDate(r.date);
+            const d    = this.parseDate(r.date);
             const from = fromDate ? new Date(fromDate) : null;
-            const to = toDate ? new Date(toDate) : null;
+            const to   = toDate   ? new Date(toDate)   : null;
             if (from && d < from) return false;
-            if (to && d > to) return false;
+            if (to   && d > to)   return false;
             return true;
           });
         }
 
-        // Category filter
+        // Category filter (from dropdown OR stat card click)
         const catFilter = category || this.state.currentCategory;
         if (catFilter) {
           data = data.filter(r => r.category === catFilter);
@@ -968,35 +1046,42 @@
       }
 
       parseDate(dateStr) {
-        const m = dateStr.match(/(\d{4})[,\s-]+(\d{2})[,\s-]+(\d{2})/);
+        const m = dateStr.match(/(\d{4})[,\s-]+(\d{1,2})[,\s-]+(\d{1,2})/);
         if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
         return new Date(dateStr);
       }
 
       clearFilters() {
-        document.getElementById('filter-date').value = '';
-        document.getElementById('filter-from').value = '';
-        document.getElementById('filter-to').value = '';
+        document.getElementById('filter-date').value     = '';
+        document.getElementById('filter-from').value     = '';
+        document.getElementById('filter-to').value       = '';
         document.getElementById('filter-category').value = '';
         this.state.currentCategory = '';
         this.updateStatCardsUI();
         this.applyFilters();
       }
 
+      // ✅ FIX: Stats now count unique users (per date if single date selected, globally if multiple)
       renderStats() {
-        // Calculate stats from FILTERED data (current view)
-        const data = this.state.filtered;
-        const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
-        
-        cats.forEach(cat => {
-          // Count unique users in this category from filtered data
-          const users = new Set(data.filter(r => r.category === cat).map(r => r.user));
-          const count = users.size;
-          
-          if (cat === 'under-6.5') document.getElementById('stat-under').textContent = count;
-          if (cat === 'base-6.5-8') document.getElementById('stat-base').textContent = count;
-          if (cat === 'ot-2hr') document.getElementById('stat-ot2').textContent = count;
-          if (cat === 'ot-4hr') document.getElementById('stat-ot4').textContent = count;
+        const data       = this.state.filtered;
+        const singleDate = document.getElementById('filter-date').value;
+        const cats       = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
+        const ids        = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
+        const subIds     = ['stat-under-sub', 'stat-base-sub', 'stat-ot2-sub', 'stat-ot4-sub'];
+
+        // Determine if a single date is active (either via dropdown or date range = same day)
+        const isSingleDay = !!singleDate;
+
+        cats.forEach((cat, i) => {
+          const catData = data.filter(r => r.category === cat);
+
+          // ✅ Always count unique users (a user can only appear once per day in processed[])
+          const uniqueUsers = new Set(catData.map(r => r.user)).size;
+
+          document.getElementById(ids[i]).textContent    = uniqueUsers;
+          document.getElementById(subIds[i]).textContent = isSingleDay
+            ? 'users today'
+            : uniqueUsers === 1 ? 'unique user' : 'unique users';
         });
       }
 
@@ -1004,28 +1089,37 @@
         const container = document.getElementById('cards-container');
         container.innerHTML = '';
 
+        // Group by user
         const grouped = {};
         this.state.filtered.forEach(r => {
           if (!grouped[r.user]) grouped[r.user] = [];
           grouped[r.user].push(r);
         });
 
+        if (Object.keys(grouped).length === 0) {
+          container.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--md-sys-color-on-surface-variant);">
+              <span class="material-icons" style="font-size:48px;opacity:0.4;">search_off</span>
+              <div class="body-large" style="margin-top:12px;">No records match the current filters</div>
+            </div>`;
+          return;
+        }
+
         Object.entries(grouped).forEach(([user, records]) => {
-          const info = records[0];
+          const info       = records[0];
           const totalHours = records.reduce((s, r) => s + r.hours, 0);
-          const days = records.length;
+          const days       = records.length;
 
           const card = document.createElement('div');
           card.className = 'card user-card';
 
-          const daysHtml = records.map(r => {
-            return `<div class="day-chip ${r.category}">
+          const daysHtml = records.map(r => `
+            <div class="day-chip ${r.category}">
               <span class="material-icons" style="font-size:14px;">event</span>
               <span>${r.date}</span>
               <span style="font-weight:600;">${r.hours}h</span>
               <span style="opacity:0.8;">${r.attendance}</span>
-            </div>`;
-          }).join('');
+            </div>`).join('');
 
           card.innerHTML = `
             <div class="card-header">
@@ -1055,9 +1149,7 @@
                 <span class="value">${(totalHours / days).toFixed(2)}h</span>
               </div>
             </div>
-            <div class="card-footer">
-              ${daysHtml}
-            </div>
+            <div class="card-footer">${daysHtml}</div>
           `;
           container.appendChild(card);
         });
@@ -1066,6 +1158,12 @@
       renderRepeated() {
         const tbody = document.getElementById('repeated-tbody');
         tbody.innerHTML = '';
+
+        if (this.state.repeated.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--md-sys-color-on-surface-variant);">No users with repeated under 6.5h days</td></tr>`;
+          return;
+        }
+
         this.state.repeated.forEach(u => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
@@ -1084,10 +1182,11 @@
 
       exportToExcel() {
         const data = this.state.filtered.map(r => [
-          r.date, r.user, r.tlQtc, r.shift, r.pcNo, r.location, r.hours, r.attendance, r.attendanceTab, r.category
+          r.date, r.user, r.tlQtc, r.shift, r.pcNo, r.location,
+          r.hours, r.attendance, r.attendanceTab, r.category
         ]);
         const ws = XLSX.utils.aoa_to_sheet([
-          ['Date', 'User', 'TL/QTC', 'Shift', 'PC No.', 'Location', 'Hours', 'Attendance', 'Attendance Tab', 'Category'],
+          ['Date','User','TL/QTC','Shift','PC No.','Location','Hours','Attendance','Attendance Tab','Category'],
           ...data
         ]);
         const wb = XLSX.utils.book_new();
@@ -1099,16 +1198,9 @@
         this.setLoading(true);
         try {
           const payload = this.state.filtered.map(r => ({
-            date: r.date,
-            user: r.user,
-            tlQtc: r.tlQtc,
-            shift: r.shift,
-            pcNo: r.pcNo,
-            location: r.location,
-            hours: r.hours,
-            attendance: r.attendance,
-            attendanceTab: r.attendanceTab,
-            category: r.category
+            date: r.date, user: r.user, tlQtc: r.tlQtc, shift: r.shift,
+            pcNo: r.pcNo, location: r.location, hours: r.hours,
+            attendance: r.attendance, attendanceTab: r.attendanceTab, category: r.category
           }));
           const res = await this.fetchAPI('exportSheet', { data: JSON.stringify(payload) });
           if (res.url) {
