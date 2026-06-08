@@ -9,39 +9,39 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     /* =========================================
-       MATERIAL DESIGN 3 – DARK THEME (SOFT)
+       MATERIAL DESIGN 3 – SLATE DARK THEME
        ========================================= */
     :root {
-      --md-sys-color-primary: #9A8AF0;
-      --md-sys-color-on-primary: #1E1B4B;
-      --md-sys-color-primary-container: #312E81;
-      --md-sys-color-on-primary-container: #E0E7FF;
-      --md-sys-color-secondary: #A5B4FC;
-      --md-sys-color-on-secondary: #1E1B4B;
-      --md-sys-color-secondary-container: #3730A3;
-      --md-sys-color-on-secondary-container: #E0E7FF;
-      --md-sys-color-tertiary: #F0ABFC;
-      --md-sys-color-on-tertiary: #4A044E;
-      --md-sys-color-tertiary-container: #86198F;
-      --md-sys-color-on-tertiary-container: #FAE8FF;
-      --md-sys-color-error: #FDA4AF;
-      --md-sys-color-on-error: #881337;
-      --md-sys-color-error-container: #9F1239;
-      --md-sys-color-on-error-container: #FFE4E6;
-      --md-sys-color-surface: #1E1E2E;
-      --md-sys-color-on-surface: #E2E8F0;
-      --md-sys-color-surface-variant: #2D2D44;
+      --md-sys-color-primary: #60A5FA;
+      --md-sys-color-on-primary: #0F172A;
+      --md-sys-color-primary-container: #1E3A5F;
+      --md-sys-color-on-primary-container: #DBEAFE;
+      --md-sys-color-secondary: #94A3B8;
+      --md-sys-color-on-secondary: #0F172A;
+      --md-sys-color-secondary-container: #334155;
+      --md-sys-color-on-secondary-container: #E2E8F0;
+      --md-sys-color-tertiary: #38BDF8;
+      --md-sys-color-on-tertiary: #0C4A6E;
+      --md-sys-color-tertiary-container: #075985;
+      --md-sys-color-on-tertiary-container: #E0F2FE;
+      --md-sys-color-error: #F87171;
+      --md-sys-color-on-error: #450A0A;
+      --md-sys-color-error-container: #7F1D1D;
+      --md-sys-color-on-error-container: #FEE2E2;
+      --md-sys-color-surface: #1E293B;
+      --md-sys-color-on-surface: #F1F5F9;
+      --md-sys-color-surface-variant: #334155;
       --md-sys-color-on-surface-variant: #94A3B8;
-      --md-sys-color-outline: #64748B;
+      --md-sys-color-outline: #475569;
       --md-sys-color-outline-variant: #334155;
       --md-sys-color-shadow: #000000;
       --md-sys-color-scrim: #000000;
-      --md-sys-color-inverse-surface: #E2E8F0;
+      --md-sys-color-inverse-surface: #F1F5F9;
       --md-sys-color-inverse-on-surface: #1E293B;
-      --md-sys-color-inverse-primary: #818CF8;
-      --md-sys-color-surface-tint: #9A8AF0;
+      --md-sys-color-inverse-primary: #3B82F6;
+      --md-sys-color-surface-tint: #60A5FA;
       --md-sys-color-background: #0F172A;
-      --md-sys-color-on-background: #E2E8F0;
+      --md-sys-color-on-background: #F1F5F9;
       
       --md-sys-elevation-1: 0px 1px 3px 1px rgba(0,0,0,0.2), 0px 1px 2px 0px rgba(0,0,0,0.3);
       --md-sys-elevation-2: 0px 2px 6px 2px rgba(0,0,0,0.2), 0px 1px 2px 0px rgba(0,0,0,0.3);
@@ -76,7 +76,7 @@
     .label-medium { font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
     .label-small { font-size: 11px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
 
-    /* Loading */
+    /* Loading (manual only) */
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(15,23,42,0.85);
       display: flex; align-items: center; justify-content: center;
@@ -114,7 +114,7 @@
       background: transparent; color: var(--md-sys-color-primary);
       padding: 10px 12px;
     }
-    .button.text:hover { background: rgba(154,138,240,0.08); }
+    .button.text:hover { background: rgba(96,165,250,0.08); }
 
     /* Text Field */
     .text-field {
@@ -162,7 +162,7 @@
       min-height: 100vh; display: flex;
       align-items: center; justify-content: center;
       padding: 24px;
-      background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%);
+      background: linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%);
     }
     .login-card {
       width: 100%; max-width: 420px; padding: 32px;
@@ -201,7 +201,7 @@
       transition: 0.2s; cursor: pointer; border: none; background: none; width: 100%;
     }
     .nav-item:hover {
-      background: rgba(154,138,240,0.08);
+      background: rgba(96,165,250,0.08);
       color: var(--md-sys-color-on-surface);
     }
     .nav-item.active {
@@ -269,7 +269,7 @@
     .stat-card:hover { box-shadow: var(--md-sys-elevation-2); transform: translateY(-2px); }
     .stat-card.active-filter {
       border: 2px solid var(--md-sys-color-primary);
-      box-shadow: 0 0 0 4px rgba(154,138,240,0.15);
+      box-shadow: 0 0 0 4px rgba(96,165,250,0.15);
     }
     .stat-card .label {
       font-size: 11px; font-weight: 500; letter-spacing: 0.5px;
@@ -393,7 +393,7 @@
       color: var(--md-sys-color-on-surface); font-size: 14px;
     }
     .data-table tr:hover td {
-      background: rgba(154,138,240,0.04);
+      background: rgba(96,165,250,0.04);
     }
 
     /* Repeated View */
@@ -428,7 +428,7 @@
 </head>
 <body>
 
-  <!-- Loading -->
+  <!-- Loading (manual only) -->
   <div id="loading" class="loading-overlay" style="display:none">
     <div class="spinner"></div>
   </div>
@@ -504,7 +504,7 @@
           <button class="button tonal" onclick="app.exportToSheets()">
             <span class="material-icons">open_in_new</span> Google Sheet
           </button>
-          <button class="button filled" onclick="app.loadDashboardData()">
+          <button class="button filled" onclick="app.loadDashboardData(true)">
             <span class="material-icons">refresh</span> Refresh
           </button>
           <button class="button text" onclick="app.logout()">
@@ -544,7 +544,7 @@
         </button>
       </div>
 
-      <!-- Stats -->
+      <!-- Stats (always show TOTAL counts) -->
       <div class="stats-row">
         <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
           <span class="label">Under 6.5h</span>
@@ -596,7 +596,7 @@
        CONFIGURATION
        ========================================= */
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5sUvifNlxDduQCtcNek-UY3RlhhcQUhkfDKDwRxub_BgbriFIVSpiNgknLsgKVn9T7A/exec';
-    const AUTO_REFRESH_MS = 30000; // كل دقيقة
+    const AUTO_REFRESH_MS = 60000; // كل دقيقة
 
     /* =========================================
        APP STATE & CLASSES
@@ -611,7 +611,8 @@
           currentShift: 'all',
           currentCategory: '',
           isLoading: false,
-          lastUpdated: null
+          lastUpdated: null,
+          totalCounts: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 }
         };
         this.autoRefreshTimer = null;
         this.init();
@@ -701,15 +702,15 @@
       showDashboard() {
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('dashboard-view').style.display = 'flex';
-        this.loadDashboardData();
-        // Auto refresh every minute
+        this.loadDashboardData(true); // manual = show loading
+        // Auto refresh in background (silent)
         this.autoRefreshTimer = setInterval(() => {
-          if (!this.state.isLoading) this.loadDashboardData();
+          this.loadDashboardData(false);
         }, AUTO_REFRESH_MS);
       }
 
-      async loadDashboardData() {
-        this.setLoading(true);
+      async loadDashboardData(showLoading = true) {
+        if (showLoading) this.setLoading(true);
         try {
           const [activeTime, teams] = await Promise.all([
             this.fetchAPI('activeTime'),
@@ -735,9 +736,9 @@
           this.updateLastUpdated();
         } catch (e) {
           console.error(e);
-          alert('Failed to load data: ' + e.message);
+          if (showLoading) alert('Failed to load data: ' + e.message);
         }
-        this.setLoading(false);
+        if (showLoading) this.setLoading(false);
       }
 
       updateLastUpdated() {
@@ -869,6 +870,12 @@
 
         this.state.processed = processed;
 
+        // Calculate TOTAL counts (always shown in stat cards)
+        const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
+        cats.forEach(cat => {
+          this.state.totalCounts[cat] = processed.filter(r => r.category === cat).length;
+        });
+
         // 7. Calculate Repeated Under 6.5
         const underMap = {};
         processed.filter(r => r.category === 'under-6.5').forEach(r => {
@@ -886,7 +893,6 @@
 
       populateDateFilter() {
         const select = document.getElementById('filter-date');
-        // Keep "All Dates" option
         const currentVal = select.value;
         select.innerHTML = '<option value="">All Dates</option>';
         
@@ -913,7 +919,6 @@
           cardsView.style.display = 'none';
           repeatedView.style.display = 'block';
           this.renderRepeated();
-          this.updateStats([]);
           return;
         }
 
@@ -983,11 +988,11 @@
 
         this.state.filtered = data;
         this.renderCards();
-        this.updateStats(data);
+        // Stats always show TOTAL counts, not filtered
+        this.renderTotalStats();
       }
 
       parseDate(dateStr) {
-        // Handle "2026-06-07" or "2026, 06-07"
         const m = dateStr.match(/(\d{4})[,\s-]+(\d{2})[,\s-]+(\d{2})/);
         if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
         return new Date(dateStr);
@@ -1003,13 +1008,12 @@
         this.applyDateFilter();
       }
 
-      updateStats(data) {
-        const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
-        const ids = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
-        cats.forEach((cat, i) => {
-          const count = data.filter(r => r.category === cat).length;
-          document.getElementById(ids[i]).textContent = count;
-        });
+      renderTotalStats() {
+        // Always show total counts from processed data
+        document.getElementById('stat-under').textContent = this.state.totalCounts['under-6.5'];
+        document.getElementById('stat-base').textContent = this.state.totalCounts['base-6.5-8'];
+        document.getElementById('stat-ot2').textContent = this.state.totalCounts['ot-2hr'];
+        document.getElementById('stat-ot4').textContent = this.state.totalCounts['ot-4hr'];
       }
 
       renderCards() {
