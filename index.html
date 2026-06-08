@@ -62,7 +62,6 @@
       overflow-x: hidden;
     }
 
-    /* Typography */
     .headline-large { font-size: 32px; font-weight: 400; line-height: 40px; letter-spacing: 0; }
     .headline-medium { font-size: 28px; font-weight: 400; line-height: 36px; letter-spacing: 0; }
     .headline-small { font-size: 24px; font-weight: 400; line-height: 32px; letter-spacing: 0; }
@@ -76,7 +75,6 @@
     .label-medium { font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
     .label-small { font-size: 11px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
 
-    /* Loading (manual only) */
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(15,23,42,0.85);
       display: flex; align-items: center; justify-content: center;
@@ -91,7 +89,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Buttons */
     .button {
       display: inline-flex; align-items: center; justify-content: center;
       gap: 8px; padding: 10px 20px; border: none; border-radius: 20px;
@@ -116,7 +113,6 @@
     }
     .button.text:hover { background: rgba(96,165,250,0.08); }
 
-    /* Text Field */
     .text-field {
       position: relative; margin-bottom: 16px;
     }
@@ -148,7 +144,6 @@
       background: var(--md-sys-color-surface-variant);
     }
 
-    /* Cards */
     .card {
       background: var(--md-sys-color-surface);
       border-radius: var(--radius-medium);
@@ -157,7 +152,6 @@
       overflow: hidden;
     }
 
-    /* Login View */
     .login-view {
       min-height: 100vh; display: flex;
       align-items: center; justify-content: center;
@@ -177,7 +171,6 @@
       text-align: center; margin-top: -16px;
     }
 
-    /* Dashboard Layout */
     .dashboard-view {
       display: flex; min-height: 100vh;
     }
@@ -229,7 +222,6 @@
       margin-top: 4px;
     }
 
-    /* Filters Bar */
     .filters-bar {
       display: flex; gap: 12px; flex-wrap: wrap;
       margin-bottom: 20px; align-items: flex-end;
@@ -254,7 +246,6 @@
       border-color: var(--md-sys-color-primary);
     }
 
-    /* Stats */
     .stats-row {
       display: grid; grid-template-columns: repeat(4, 1fr);
       gap: 16px; margin-bottom: 24px;
@@ -283,7 +274,6 @@
     .stat-card[data-cat="ot-2hr"] { border-left: 4px solid var(--md-sys-color-secondary); }
     .stat-card[data-cat="ot-4hr"] { border-left: 4px solid var(--md-sys-color-tertiary); }
 
-    /* Cards Grid */
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -373,7 +363,6 @@
       color: var(--md-sys-color-on-tertiary-container);
     }
 
-    /* Data Table */
     .data-table {
       width: 100%; border-collapse: collapse;
       background: var(--md-sys-color-surface);
@@ -396,7 +385,6 @@
       background: rgba(96,165,250,0.04);
     }
 
-    /* Repeated View */
     #repeated-view {
       background: var(--md-sys-color-surface);
       border-radius: var(--radius-medium);
@@ -406,7 +394,6 @@
       margin-bottom: 20px; color: var(--md-sys-color-on-surface);
     }
 
-    /* Responsive */
     @media (max-width: 1200px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
     }
@@ -428,12 +415,10 @@
 </head>
 <body>
 
-  <!-- Loading (manual only) -->
   <div id="loading" class="loading-overlay" style="display:none">
     <div class="spinner"></div>
   </div>
 
-  <!-- Login View -->
   <div id="login-view" class="login-view">
     <div class="card login-card">
       <div class="headline-large">Active Time Performance</div>
@@ -457,7 +442,6 @@
     </div>
   </div>
 
-  <!-- Dashboard View -->
   <div id="dashboard-view" class="dashboard-view" style="display:none;">
     <aside class="nav-drawer">
       <div class="nav-header">
@@ -513,25 +497,24 @@
         </div>
       </header>
 
-      <!-- Filters -->
       <div class="filters-bar">
         <div class="filter-group">
           <label>Single Date</label>
-          <select id="filter-date" onchange="app.applyDateFilter()">
+          <select id="filter-date">
             <option value="">All Dates</option>
           </select>
         </div>
         <div class="filter-group">
           <label>From</label>
-          <input type="date" id="filter-from" onchange="app.applyDateFilter()">
+          <input type="date" id="filter-from">
         </div>
         <div class="filter-group">
           <label>To</label>
-          <input type="date" id="filter-to" onchange="app.applyDateFilter()">
+          <input type="date" id="filter-to">
         </div>
         <div class="filter-group">
           <label>Category</label>
-          <select id="filter-category" onchange="app.applyDateFilter()">
+          <select id="filter-category">
             <option value="">All Categories</option>
             <option value="under-6.5">Under 6.5h</option>
             <option value="base-6.5-8">Base Shift 6.5-8h</option>
@@ -539,12 +522,14 @@
             <option value="ot-4hr">OT 10-12h</option>
           </select>
         </div>
+        <button class="button filled" onclick="app.applyFilters()" style="height:40px;">
+          <span class="material-icons">check</span> Apply
+        </button>
         <button class="button text" onclick="app.clearFilters()" style="height:40px;">
           <span class="material-icons">clear_all</span> Clear
         </button>
       </div>
 
-      <!-- Stats (dynamic per shift) -->
       <div class="stats-row">
         <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
           <span class="label">Under 6.5h</span>
@@ -592,15 +577,9 @@
   </div>
 
   <script>
-    /* =========================================
-       CONFIGURATION
-       ========================================= */
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5sUvifNlxDduQCtcNek-UY3RlhhcQUhkfDKDwRxub_BgbriFIVSpiNgknLsgKVn9T7A/exec';
     const AUTO_REFRESH_MS = 60000;
 
-    /* =========================================
-       APP STATE & CLASSES
-       ========================================= */
     class App {
       constructor() {
         this.state = {
@@ -612,7 +591,6 @@
           currentCategory: '',
           isLoading: false,
           lastUpdated: null,
-          // Counts per shift: all, morning, night, overnight
           shiftCounts: {
             all: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
             morning: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
@@ -737,7 +715,7 @@
 
           this.processData();
           this.populateDateFilter();
-          this.applyDateFilter();
+          this.applyFilters();
           this.updateLastUpdated();
         } catch (e) {
           console.error(e);
@@ -753,13 +731,10 @@
         document.getElementById('last-updated').textContent = 'Last updated: ' + timeStr + ' (Auto-refresh ON)';
       }
 
-      /* =========================================
-         DATA PROCESSING ENGINE
-         ========================================= */
       processData() {
         const { activeTime, teams, attendance } = this.state.raw;
 
-        // 1. Teams Map (case-insensitive) + Order
+        // 1. Teams Map
         const teamsMap = new Map();
         const teamsOrder = [];
         teams.forEach(row => {
@@ -773,7 +748,7 @@
           });
         });
 
-        // 2. Sum C+D per user per date from Active Time
+        // 2. Sum C+D per user per date
         const userDayMap = new Map();
         const datesSet = new Set();
 
@@ -794,7 +769,7 @@
           userDayMap.get(key).hours += total;
         });
 
-        // 3. Format date: "2026-06-07" or "2026, 06-07" -> "7-Jun"
+        // 3. Format date for attendance matching
         const fmtDate = (dStr) => {
           const m = dStr.match(/(\d{4})[,\s-]+(\d{2})[,\s-]+(\d{2})/);
           if (m) {
@@ -804,9 +779,11 @@
           return dStr;
         };
 
-        // 4. Match Attendance (Morning/Night/Overnight)
+        // 4. Match Attendance - IMPROVED: check ALL tabs for each user
         userDayMap.forEach((val) => {
           const target = fmtDate(val.date);
+          let found = false;
+          
           for (const [tabName, tabData] of Object.entries(attendance)) {
             if (!tabData || !tabData.headers) continue;
             const headers = tabData.headers;
@@ -821,13 +798,14 @@
               if (['P', 'PT', 'TP'].includes(cell)) {
                 val.attendance = cell;
                 val.attendanceTab = tabName;
+                found = true;
                 break;
               }
             }
           }
         });
 
-        // 5. Sort users by Teams order (Active Time users only)
+        // 5. Sort users by Teams order
         const activeUsers = [...new Set([...userDayMap.values()].map(v => v.user))];
         activeUsers.sort((a, b) => {
           const ia = teamsOrder.indexOf(a);
@@ -875,25 +853,31 @@
 
         this.state.processed = processed;
 
-        // Calculate counts per shift
+        // Calculate counts per shift - COUNT UNIQUE USERS not records
         const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
         const shiftKeys = ['all', 'morning', 'night', 'overnight'];
 
-        // Reset
         shiftKeys.forEach(sk => {
           cats.forEach(c => this.state.shiftCounts[sk][c] = 0);
         });
 
-        // Count all
+        // Count unique users per category per shift
         cats.forEach(c => {
-          this.state.shiftCounts.all[c] = processed.filter(r => r.category === c).length;
-        });
+          // All shifts - unique users
+          const allUsers = new Set(processed.filter(r => r.category === c).map(r => r.user));
+          this.state.shiftCounts.all[c] = allUsers.size;
 
-        // Count per shift
-        cats.forEach(c => {
-          this.state.shiftCounts.morning[c] = processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'morning').length;
-          this.state.shiftCounts.night[c] = processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'night').length;
-          this.state.shiftCounts.overnight[c] = processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'overnight').length;
+          // Morning
+          const morningUsers = new Set(processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'morning').map(r => r.user));
+          this.state.shiftCounts.morning[c] = morningUsers.size;
+
+          // Night
+          const nightUsers = new Set(processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'night').map(r => r.user));
+          this.state.shiftCounts.night[c] = nightUsers.size;
+
+          // Overnight
+          const overnightUsers = new Set(processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'overnight').map(r => r.user));
+          this.state.shiftCounts.overnight[c] = overnightUsers.size;
         });
 
         // 7. Calculate Repeated Under 6.5
@@ -935,9 +919,6 @@
         if (currentVal && dates.includes(currentVal)) select.value = currentVal;
       }
 
-      /* =========================================
-         FILTERING & RENDERING
-         ========================================= */
       filterByShift(shift) {
         this.state.currentShift = shift;
         const cardsView = document.getElementById('cards-view');
@@ -947,7 +928,6 @@
           cardsView.style.display = 'none';
           repeatedView.style.display = 'block';
           this.renderRepeated();
-          // Hide stats on repeated view
           document.querySelector('.stats-row').style.display = 'none';
           return;
         }
@@ -955,7 +935,7 @@
         cardsView.style.display = 'block';
         repeatedView.style.display = 'none';
         document.querySelector('.stats-row').style.display = 'grid';
-        this.applyDateFilter();
+        this.applyFilters();
       }
 
       filterByCategory(cat) {
@@ -965,7 +945,7 @@
         } else {
           this.state.currentCategory = cat;
         }
-        this.applyDateFilter();
+        this.applyFilters();
         this.updateStatCardsUI();
       }
 
@@ -975,7 +955,7 @@
         });
       }
 
-      applyDateFilter() {
+      applyFilters() {
         const singleDate = document.getElementById('filter-date').value;
         const fromDate = document.getElementById('filter-from').value;
         const toDate = document.getElementById('filter-to').value;
@@ -1011,7 +991,7 @@
           });
         }
 
-        // Category filter (from dropdown or stat card)
+        // Category filter
         const catFilter = category || this.state.currentCategory;
         if (catFilter) {
           data = data.filter(r => r.category === catFilter);
@@ -1019,7 +999,6 @@
 
         this.state.filtered = data;
         this.renderCards();
-        // Render stats based on CURRENT shift
         this.renderStats();
       }
 
@@ -1036,7 +1015,7 @@
         document.getElementById('filter-category').value = '';
         this.state.currentCategory = '';
         this.updateStatCardsUI();
-        this.applyDateFilter();
+        this.applyFilters();
       }
 
       renderStats() {
@@ -1130,9 +1109,6 @@
         });
       }
 
-      /* =========================================
-         EXPORT FUNCTIONS
-         ========================================= */
       exportToExcel() {
         const data = this.state.filtered.map(r => [
           r.date, r.user, r.tlQtc, r.shift, r.pcNo, r.location, r.hours, r.attendance, r.attendanceTab, r.category
