@@ -590,13 +590,7 @@
           currentShift: 'all',
           currentCategory: '',
           isLoading: false,
-          lastUpdated: null,
-          shiftCounts: {
-            all: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
-            morning: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
-            night: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 },
-            overnight: { 'under-6.5': 0, 'base-6.5-8': 0, 'ot-2hr': 0, 'ot-4hr': 0 }
-          }
+          lastUpdated: null
         };
         this.autoRefreshTimer = null;
         this.init();
@@ -779,10 +773,9 @@
           return dStr;
         };
 
-        // 4. Match Attendance - IMPROVED: check ALL tabs for each user
+        // 4. Match Attendance - check ALL tabs for each user
         userDayMap.forEach((val) => {
           const target = fmtDate(val.date);
-          let found = false;
           
           for (const [tabName, tabData] of Object.entries(attendance)) {
             if (!tabData || !tabData.headers) continue;
@@ -798,7 +791,6 @@
               if (['P', 'PT', 'TP'].includes(cell)) {
                 val.attendance = cell;
                 val.attendanceTab = tabName;
-                found = true;
                 break;
               }
             }
@@ -852,33 +844,6 @@
         });
 
         this.state.processed = processed;
-
-        // Calculate counts per shift - COUNT UNIQUE USERS not records
-        const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
-        const shiftKeys = ['all', 'morning', 'night', 'overnight'];
-
-        shiftKeys.forEach(sk => {
-          cats.forEach(c => this.state.shiftCounts[sk][c] = 0);
-        });
-
-        // Count unique users per category per shift
-        cats.forEach(c => {
-          // All shifts - unique users
-          const allUsers = new Set(processed.filter(r => r.category === c).map(r => r.user));
-          this.state.shiftCounts.all[c] = allUsers.size;
-
-          // Morning
-          const morningUsers = new Set(processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'morning').map(r => r.user));
-          this.state.shiftCounts.morning[c] = morningUsers.size;
-
-          // Night
-          const nightUsers = new Set(processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'night').map(r => r.user));
-          this.state.shiftCounts.night[c] = nightUsers.size;
-
-          // Overnight
-          const overnightUsers = new Set(processed.filter(r => r.category === c && this.getShiftKey(r.shift) === 'overnight').map(r => r.user));
-          this.state.shiftCounts.overnight[c] = overnightUsers.size;
-        });
 
         // 7. Calculate Repeated Under 6.5
         const underMap = {};
@@ -1019,12 +984,20 @@
       }
 
       renderStats() {
-        const shift = this.state.currentShift;
-        const counts = this.state.shiftCounts[shift] || this.state.shiftCounts.all;
-        document.getElementById('stat-under').textContent = counts['under-6.5'];
-        document.getElementById('stat-base').textContent = counts['base-6.5-8'];
-        document.getElementById('stat-ot2').textContent = counts['ot-2hr'];
-        document.getElementById('stat-ot4').textContent = counts['ot-4hr'];
+        // Calculate stats from FILTERED data (current view)
+        const data = this.state.filtered;
+        const cats = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
+        
+        cats.forEach(cat => {
+          // Count unique users in this category from filtered data
+          const users = new Set(data.filter(r => r.category === cat).map(r => r.user));
+          const count = users.size;
+          
+          if (cat === 'under-6.5') document.getElementById('stat-under').textContent = count;
+          if (cat === 'base-6.5-8') document.getElementById('stat-base').textContent = count;
+          if (cat === 'ot-2hr') document.getElementById('stat-ot2').textContent = count;
+          if (cat === 'ot-4hr') document.getElementById('stat-ot4').textContent = count;
+        });
       }
 
       renderCards() {
