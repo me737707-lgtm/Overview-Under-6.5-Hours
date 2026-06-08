@@ -760,14 +760,14 @@
         document.getElementById('last-updated').textContent = 'Last updated: ' + timeStr + ' (Auto-refresh ON)';
       }
 
-      // ✅ FIX: Format date string to match attendance header format (e.g. "1-Jun")
+      // ✅ FIX: Format date string to match attendance header format (e.g. "7-Jun")
       fmtDate(dStr) {
         if (!dStr) return '';
-        // Handle "2026, 06-01" or "2026-06-01" format from Active Time sheet
+        // Handle "2026, 06-07" or "2026-06-07" format from Active Time sheet
         const m = dStr.match(/(\d{4})[,\s-]+(\d{1,2})[,\s-]+(\d{1,2})/);
         if (m) {
           const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
-          // Format: "1-Jun" (no leading zero on day)
+          // Format: "7-Jun" (no leading zero on day)
           return d.getDate() + '-' + d.toLocaleString('en', { month: 'short' });
         }
         return dStr;
@@ -827,18 +827,24 @@
         // ── 3. Match attendance for each user-day across all 3 tabs ──────────
         // Build a fast lookup: tabName → Map<formattedDate, colIndex>
         const attColIndex = {};
+        const tabConfigs = {};
         for (const [tabName, tabData] of Object.entries(attendance)) {
           if (!tabData || !tabData.headers) continue;
           attColIndex[tabName] = new Map();
           tabData.headers.forEach((h, i) => {
             if (h) attColIndex[tabName].set(h.toString().trim(), i);
           });
+          // حفظ إعدادات الأعمدة الخاصة بكل Tab
+          tabConfigs[tabName] = {
+            userColIdx: tabData.userColIdx !== undefined ? tabData.userColIdx : 0,
+            dateStartColIdx: tabData.dateStartColIdx !== undefined ? tabData.dateStartColIdx : 3
+          };
         }
 
         let matched = 0, unmatched = 0;
 
         userDayMap.forEach(val => {
-          const target = val.dateFmt;   // e.g. "1-Jun"
+          const target = val.dateFmt;   // e.g. "7-Jun"
           let found = false;
 
           for (const [tabName, tabData] of Object.entries(attendance)) {
@@ -847,15 +853,20 @@
             const colMap = attColIndex[tabName];
             if (!colMap || !colMap.has(target)) continue;
 
-            const colIdx    = colMap.get(target);
-            const actualIdx = 3 + colIdx;   // columns A-C are user/info, data starts at D
+            const headerIdx = colMap.get(target);
+            const config = tabConfigs[tabName];
+            
+            // حساب العمود الفعلي للتاريخ بناءً على بداية أعمدة التواريخ في الـ Tab
+            const actualColIdx = config.dateStartColIdx + headerIdx;
 
-            const userRow = tabData.rows.find(r =>
-              r[0] && r[0].toString().toLowerCase().trim() === val.user
-            );
+            // البحث عن اليوزر في العمود المحدد له في هذا الـ Tab
+            const userRow = tabData.rows.find(r => {
+              const cellVal = r[config.userColIdx];
+              return cellVal && cellVal.toString().toLowerCase().trim() === val.user;
+            });
 
-            if (userRow && actualIdx < userRow.length) {
-              const cell = userRow[actualIdx] ? userRow[actualIdx].toString().trim() : '';
+            if (userRow && actualColIdx < userRow.length) {
+              const cell = userRow[actualColIdx] ? userRow[actualColIdx].toString().trim() : '';
               if (VALID_ATTENDANCE.includes(cell)) {
                 val.attendance    = cell;
                 val.attendanceTab = tabName;
