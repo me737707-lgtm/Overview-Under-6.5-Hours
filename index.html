@@ -288,14 +288,15 @@
       border-radius: var(--radius-medium);
       padding: 20px; display: flex; flex-direction: column; gap: 8px;
       transition: box-shadow 0.2s, transform 0.2s;
-      /* ✅ FIX: لا يوجد cursor pointer على الـ stat cards لأن hover كان بيعمل مشكلة */
-      cursor: default;
+      cursor: pointer;
       position: relative;
     }
-    /* ✅ FIX: أزلنا hover transform من stat-card وخلينا shadow بس خفيفة */
-    .stat-card:hover { box-shadow: var(--md-sys-elevation-2); }
+    .stat-card:hover {
+      box-shadow: var(--md-sys-elevation-2);
+      transform: translateY(-2px);
+    }
     .stat-card.active-filter {
-      border: 2px solid var(--md-sys-color-primary);
+      border: 2px solid var(--md-sys-color-primary) !important;
       box-shadow: 0 0 0 4px rgba(96,165,250,0.15);
     }
     .stat-card .label {
@@ -610,34 +611,28 @@
       </div>
 
       <div class="stats-row">
-        <!--
-          ✅ FIX: stat cards no longer call filterByCategory on click.
-          الأرقام دلوقتي بتتحسب دايماً على ALL processed data
-          بغض النظر عن أي category filter تانية عاملها.
-          لو عايز تفلتر، استخدم dropdown فوق.
-        -->
-        <div class="stat-card" data-cat="under-6.5">
+        <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
           <span class="label">Under 6.5h</span>
           <span class="value" id="stat-under">
             <span class="skeleton skeleton-value"></span>
           </span>
           <span class="sub-label" id="stat-under-sub">unique users</span>
         </div>
-        <div class="stat-card" data-cat="base-6.5-8">
+        <div class="stat-card" data-cat="base-6.5-8" onclick="app.filterByCategory('base-6.5-8')">
           <span class="label">Base Shift 6.5-8h</span>
           <span class="value" id="stat-base">
             <span class="skeleton skeleton-value"></span>
           </span>
           <span class="sub-label" id="stat-base-sub">unique users</span>
         </div>
-        <div class="stat-card" data-cat="ot-2hr">
+        <div class="stat-card" data-cat="ot-2hr" onclick="app.filterByCategory('ot-2hr')">
           <span class="label">OT 8-10h</span>
           <span class="value" id="stat-ot2">
             <span class="skeleton skeleton-value"></span>
           </span>
           <span class="sub-label" id="stat-ot2-sub">unique users</span>
         </div>
-        <div class="stat-card" data-cat="ot-4hr">
+        <div class="stat-card" data-cat="ot-4hr" onclick="app.filterByCategory('ot-4hr')">
           <span class="label">OT 10-12h</span>
           <span class="value" id="stat-ot4">
             <span class="skeleton skeleton-value"></span>
@@ -1142,14 +1137,27 @@
         this.applyFilters();
       }
 
-      // ✅ FIX: filterByCategory محذوف تماماً من onclick على stat cards
-      // الـ stat cards دلوقتي display-only — الفلترة بالـ dropdown بس
+      // ✅ FIX: filterByCategory — الكاردز بتتفلتر لكن الأرقام في stat cards
+      // بتفضل صح لأن renderStats بتحسب من processed مش من filtered
+      filterByCategory(cat) {
+        this.state.currentCategory = this.state.currentCategory === cat ? '' : cat;
+        // sync the dropdown to match
+        document.getElementById('filter-category').value = this.state.currentCategory;
+        this.applyFilters();
+        this.updateStatCardsUI();
+      }
+
+      updateStatCardsUI() {
+        document.querySelectorAll('.stat-card').forEach(card => {
+          card.classList.toggle('active-filter', card.dataset.cat === this.state.currentCategory);
+        });
+      }
 
       applyFilters() {
         const singleDate = document.getElementById('filter-date').value;
         const fromDate   = document.getElementById('filter-from').value;
         const toDate     = document.getElementById('filter-to').value;
-        const category   = document.getElementById('filter-category').value;
+        const category   = document.getElementById('filter-category').value || this.state.currentCategory;
 
         let data = this.state.processed;
 
@@ -1200,6 +1208,7 @@
         document.getElementById('filter-to').value       = '';
         document.getElementById('filter-category').value = '';
         this.state.currentCategory = '';
+        this.updateStatCardsUI();
         this.applyFilters();
       }
 
