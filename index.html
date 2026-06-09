@@ -278,26 +278,26 @@
       border-color: var(--md-sys-color-primary);
     }
 
+    /* ── Stats layout: صفين — summary row فوق، category row تحت ── */
+    .stats-section { margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
+
+    .summary-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
     .stats-row {
       display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 16px; margin-bottom: 24px;
+      gap: 16px;
     }
+
+    /* ── Base card style (مشترك) ── */
     .stat-card {
       background: var(--md-sys-color-surface);
       border: 1px solid var(--md-sys-color-outline-variant);
       border-radius: var(--radius-medium);
       padding: 20px; display: flex; flex-direction: column; gap: 8px;
       transition: box-shadow 0.2s, transform 0.2s;
-      cursor: pointer;
       position: relative;
-    }
-    .stat-card:hover {
-      box-shadow: var(--md-sys-elevation-2);
-      transform: translateY(-2px);
-    }
-    .stat-card.active-filter {
-      border: 2px solid var(--md-sys-color-primary) !important;
-      box-shadow: 0 0 0 4px rgba(96,165,250,0.15);
     }
     .stat-card .label {
       font-size: 11px; font-weight: 500; letter-spacing: 0.5px;
@@ -310,6 +310,33 @@
     .stat-card .sub-label {
       font-size: 10px; color: var(--md-sys-color-on-surface-variant);
       letter-spacing: 0.3px;
+    }
+
+    /* ── Summary cards (Total Hours / Production / Avg) — لا يقبلوا click ── */
+    .stat-card.summary {
+      cursor: default;
+      border-left: 4px solid var(--md-sys-color-tertiary);
+    }
+    .stat-card.summary:hover { box-shadow: var(--md-sys-elevation-1); }
+    .stat-card.summary .value { font-size: 26px; color: var(--md-sys-color-tertiary); }
+    .stat-card.summary[data-summary="total-hours"]  { border-left-color: #A78BFA; }
+    .stat-card.summary[data-summary="total-hours"] .value  { color: #A78BFA; }
+    .stat-card.summary[data-summary="production"]  { border-left-color: #34D399; }
+    .stat-card.summary[data-summary="production"] .value  { color: #34D399; }
+    .stat-card.summary[data-summary="avg-hours"]   { border-left-color: var(--md-sys-color-tertiary); }
+    .stat-card.summary[data-summary="avg-hours"] .value   { color: var(--md-sys-color-tertiary); }
+
+    /* ── Category cards — قابلة للضغط ── */
+    .stat-card.category {
+      cursor: pointer;
+    }
+    .stat-card.category:hover {
+      box-shadow: var(--md-sys-elevation-2);
+      transform: translateY(-2px);
+    }
+    .stat-card.category.active-filter {
+      border: 2px solid var(--md-sys-color-primary) !important;
+      box-shadow: 0 0 0 4px rgba(96,165,250,0.15);
     }
     .stat-card[data-cat="under-6.5"] { border-left: 4px solid var(--md-sys-color-error); }
     .stat-card[data-cat="base-6.5-8"] { border-left: 4px solid var(--md-sys-color-primary); }
@@ -465,6 +492,7 @@
 
     @media (max-width: 1200px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .summary-row { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 960px) {
       .nav-drawer { width: 72px; min-width: 72px; padding: 16px 8px; }
@@ -476,6 +504,7 @@
     }
     @media (max-width: 600px) {
       .stats-row { grid-template-columns: 1fr 1fr; }
+      .summary-row { grid-template-columns: 1fr; }
       .top-app-bar { flex-direction: column; }
       .filters-bar { flex-direction: column; }
       .filter-group select, .filter-group input { width: 100%; }
@@ -610,35 +639,75 @@
         <span>Processed Records: <strong id="dbg-processed">0</strong></span>
       </div>
 
-      <div class="stats-row">
-        <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
-          <span class="label">Under 6.5h</span>
-          <span class="value" id="stat-under">
-            <span class="skeleton skeleton-value"></span>
-          </span>
-          <span class="sub-label" id="stat-under-sub">unique users</span>
+      <!-- ✅ NEW: Stats section — summary row + category row -->
+      <div class="stats-section" id="stats-section">
+
+        <!-- صف 1: ملخص إجمالي (Total Hours / Production / Avg) -->
+        <div class="summary-row">
+          <div class="stat-card summary" data-summary="total-hours">
+            <span class="label">
+              <span class="material-icons" style="font-size:13px;vertical-align:middle;">schedule</span>
+              Total Hours
+            </span>
+            <span class="value" id="stat-total-hours">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-total-hours-sub">across all labelers</span>
+          </div>
+          <div class="stat-card summary" data-summary="production">
+            <span class="label">
+              <span class="material-icons" style="font-size:13px;vertical-align:middle;">people</span>
+              Total Production
+            </span>
+            <span class="value" id="stat-production">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-production-sub">active labelers</span>
+          </div>
+          <div class="stat-card summary" data-summary="avg-hours">
+            <span class="label">
+              <span class="material-icons" style="font-size:13px;vertical-align:middle;">avg_pace</span>
+              Avg Hours / Labeler
+            </span>
+            <span class="value" id="stat-avg-hours">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-avg-hours-sub">hours per labeler</span>
+          </div>
         </div>
-        <div class="stat-card" data-cat="base-6.5-8" onclick="app.filterByCategory('base-6.5-8')">
-          <span class="label">Base Shift 6.5-8h</span>
-          <span class="value" id="stat-base">
-            <span class="skeleton skeleton-value"></span>
-          </span>
-          <span class="sub-label" id="stat-base-sub">unique users</span>
+
+        <!-- صف 2: categories (قابلة للضغط) -->
+        <div class="stats-row">
+          <div class="stat-card category" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
+            <span class="label">Under 6.5h</span>
+            <span class="value" id="stat-under">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-under-sub">unique users</span>
+          </div>
+          <div class="stat-card category" data-cat="base-6.5-8" onclick="app.filterByCategory('base-6.5-8')">
+            <span class="label">Base Shift 6.5-8h</span>
+            <span class="value" id="stat-base">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-base-sub">unique users</span>
+          </div>
+          <div class="stat-card category" data-cat="ot-2hr" onclick="app.filterByCategory('ot-2hr')">
+            <span class="label">OT 8-10h</span>
+            <span class="value" id="stat-ot2">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-ot2-sub">unique users</span>
+          </div>
+          <div class="stat-card category" data-cat="ot-4hr" onclick="app.filterByCategory('ot-4hr')">
+            <span class="label">OT 10-12h</span>
+            <span class="value" id="stat-ot4">
+              <span class="skeleton skeleton-value"></span>
+            </span>
+            <span class="sub-label" id="stat-ot4-sub">unique users</span>
+          </div>
         </div>
-        <div class="stat-card" data-cat="ot-2hr" onclick="app.filterByCategory('ot-2hr')">
-          <span class="label">OT 8-10h</span>
-          <span class="value" id="stat-ot2">
-            <span class="skeleton skeleton-value"></span>
-          </span>
-          <span class="sub-label" id="stat-ot2-sub">unique users</span>
-        </div>
-        <div class="stat-card" data-cat="ot-4hr" onclick="app.filterByCategory('ot-4hr')">
-          <span class="label">OT 10-12h</span>
-          <span class="value" id="stat-ot4">
-            <span class="skeleton skeleton-value"></span>
-          </span>
-          <span class="sub-label" id="stat-ot4-sub">unique users</span>
-        </div>
+
       </div>
 
       <div id="cards-view">
@@ -1118,13 +1187,13 @@
         this.state.currentShift = shift;
         const cardsView    = document.getElementById('cards-view');
         const repeatedView = document.getElementById('repeated-view');
-        const statsRow     = document.querySelector('.stats-row');
+        const statsSection = document.getElementById('stats-section');
         const debugBanner  = document.getElementById('debug-banner');
 
         if (shift === 'repeated') {
           cardsView.style.display    = 'none';
           repeatedView.style.display = 'block';
-          statsRow.style.display     = 'none';
+          statsSection.style.display = 'none';
           debugBanner.style.display  = 'none';
           this.renderRepeated();
           return;
@@ -1132,7 +1201,7 @@
 
         cardsView.style.display    = 'block';
         repeatedView.style.display = 'none';
-        statsRow.style.display     = 'grid';
+        statsSection.style.display = 'flex';
         debugBanner.style.display  = 'flex';
         this.applyFilters();
       }
@@ -1148,7 +1217,7 @@
       }
 
       updateStatCardsUI() {
-        document.querySelectorAll('.stat-card').forEach(card => {
+        document.querySelectorAll('.stat-card.category').forEach(card => {
           card.classList.toggle('active-filter', card.dataset.cat === this.state.currentCategory);
         });
       }
@@ -1213,13 +1282,12 @@
       }
 
       // ─────────────────────────────────────────────────────────────────────
-      // ✅ FIX: renderStats دلوقتي بتحسب على processed كامل (مش filtered)
-      //    عشان الأرقام دايماً تبين صح بغض النظر عن أي فلتر category
-      //    الـ shift filter بس هو اللي بياثر عليهم
+      // renderStats: حساب الـ 7 كروت (3 summary + 4 category)
+      // Summary  → بتحسب من baseData (shift + date filters بس، بدون category)
+      // Category → بتحسب من baseData كمان (عشان الأرقام تفضل صح دايماً)
       // ─────────────────────────────────────────────────────────────────────
       renderStats() {
-        // ✅ KEY FIX: نحسب الأرقام من processed + shift filter فقط
-        // مش من filtered — عشان category filter مايخليش الباقين 0
+        // baseData = processed + shift filter + date filters (بدون category filter)
         let baseData = this.state.processed;
 
         if (this.state.currentShift !== 'all' && this.state.currentShift !== 'repeated') {
@@ -1232,7 +1300,6 @@
           });
         }
 
-        // تطبيق date filters على baseData أيضاً للحفاظ على الـ context
         const singleDate = document.getElementById('filter-date').value;
         const fromDate   = document.getElementById('filter-from').value;
         const toDate     = document.getElementById('filter-to').value;
@@ -1252,20 +1319,39 @@
         }
 
         const isSingleDay = !!singleDate;
-        const cats  = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
-        const ids   = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
+        const dateLabel   = isSingleDay ? 'users today' : 'unique users';
+
+        // ── 1. Category cards ─────────────────────────────────────────────
+        const cats   = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
+        const ids    = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
         const subIds = ['stat-under-sub', 'stat-base-sub', 'stat-ot2-sub', 'stat-ot4-sub'];
 
         cats.forEach((cat, i) => {
           const count = new Set(
             baseData.filter(r => r.category === cat).map(r => r.user)
           ).size;
-
           document.getElementById(ids[i]).textContent    = count;
-          document.getElementById(subIds[i]).textContent = isSingleDay
-            ? 'users today'
-            : count === 1 ? 'unique user' : 'unique users';
+          document.getElementById(subIds[i]).textContent = count === 1 ? 'unique user' : dateLabel;
         });
+
+        // ── 2. Total Hours (C+D مجموع ساعات كل اليوزرات في baseData) ──────
+        const totalHours = baseData.reduce((sum, r) => sum + r.hours, 0);
+        document.getElementById('stat-total-hours').textContent =
+          totalHours > 0 ? totalHours.toFixed(2) + 'h' : '0h';
+        document.getElementById('stat-total-hours-sub').textContent =
+          isSingleDay ? 'today\'s total' : 'across all days';
+
+        // ── 3. Total Production (كل اليوزرات الـ unique بغض النظر عن category) ─
+        const totalProduction = new Set(baseData.map(r => r.user)).size;
+        document.getElementById('stat-production').textContent = totalProduction;
+        document.getElementById('stat-production-sub').textContent =
+          isSingleDay ? 'active today' : 'active labelers';
+
+        // ── 4. Avg Hours per Labeler ──────────────────────────────────────
+        const avgHours = totalProduction > 0 ? totalHours / totalProduction : 0;
+        document.getElementById('stat-avg-hours').textContent =
+          avgHours > 0 ? avgHours.toFixed(2) + 'h' : '0h';
+        document.getElementById('stat-avg-hours-sub').textContent = 'hours per labeler';
       }
 
       renderCards() {
