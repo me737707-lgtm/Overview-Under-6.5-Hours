@@ -75,6 +75,7 @@
     .label-medium { font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
     .label-small { font-size: 11px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
 
+    /* ── Spinner (مصغر لتسريع الإحساس) ── */
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(15,23,42,0.85);
       display: flex; align-items: center; justify-content: center;
@@ -88,6 +89,37 @@
       animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Skeleton shimmer ── */
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position: 600px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg,
+        var(--md-sys-color-surface-variant) 25%,
+        #3e526b 50%,
+        var(--md-sys-color-surface-variant) 75%);
+      background-size: 600px 100%;
+      animation: shimmer 1.4s infinite linear;
+      border-radius: var(--radius-small);
+    }
+    .skeleton-value {
+      height: 40px; width: 80px;
+      display: inline-block;
+    }
+    .skeleton-sub {
+      height: 12px; width: 90px;
+      display: block; margin-top: 6px;
+    }
+
+    /* ── Refresh progress bar ── */
+    .refresh-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: var(--md-sys-color-primary);
+      width: 0%; transition: width 0.3s ease;
+      z-index: 10000;
+    }
 
     .button {
       display: inline-flex; align-items: center; justify-content: center;
@@ -255,9 +287,13 @@
       border: 1px solid var(--md-sys-color-outline-variant);
       border-radius: var(--radius-medium);
       padding: 20px; display: flex; flex-direction: column; gap: 8px;
-      transition: 0.2s; cursor: pointer; position: relative;
+      transition: box-shadow 0.2s, transform 0.2s;
+      /* ✅ FIX: لا يوجد cursor pointer على الـ stat cards لأن hover كان بيعمل مشكلة */
+      cursor: default;
+      position: relative;
     }
-    .stat-card:hover { box-shadow: var(--md-sys-elevation-2); transform: translateY(-2px); }
+    /* ✅ FIX: أزلنا hover transform من stat-card وخلينا shadow بس خفيفة */
+    .stat-card:hover { box-shadow: var(--md-sys-elevation-2); }
     .stat-card.active-filter {
       border: 2px solid var(--md-sys-color-primary);
       box-shadow: 0 0 0 4px rgba(96,165,250,0.15);
@@ -268,8 +304,8 @@
     }
     .stat-card .value {
       font-size: 32px; font-weight: 400; color: var(--md-sys-color-on-surface);
+      min-height: 40px;
     }
-    /* ✅ FIX: sub-label for context under the number */
     .stat-card .sub-label {
       font-size: 10px; color: var(--md-sys-color-on-surface-variant);
       letter-spacing: 0.3px;
@@ -399,7 +435,6 @@
       margin-bottom: 20px; color: var(--md-sys-color-on-surface);
     }
 
-    /* ✅ Debug info banner */
     .debug-banner {
       background: var(--md-sys-color-surface-variant);
       border: 1px solid var(--md-sys-color-outline);
@@ -409,6 +444,21 @@
       display: flex; gap: 24px; flex-wrap: wrap;
     }
     .debug-banner span strong {
+      color: var(--md-sys-color-primary);
+    }
+
+    /* ── Cache indicator badge ── */
+    .cache-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 500; padding: 2px 8px;
+      border-radius: 10px; margin-left: 8px;
+    }
+    .cache-badge.from-cache {
+      background: rgba(56,189,248,0.15);
+      color: var(--md-sys-color-tertiary);
+    }
+    .cache-badge.live {
+      background: rgba(96,165,250,0.15);
       color: var(--md-sys-color-primary);
     }
 
@@ -432,6 +482,9 @@
   </style>
 </head>
 <body>
+
+  <!-- Refresh progress bar -->
+  <div class="refresh-bar" id="refresh-bar"></div>
 
   <div id="loading" class="loading-overlay" style="display:none">
     <div class="spinner"></div>
@@ -506,7 +559,7 @@
           <button class="button tonal" onclick="app.exportToSheets()">
             <span class="material-icons">open_in_new</span> Google Sheet
           </button>
-          <button class="button filled" onclick="app.loadDashboardData(true)">
+          <button class="button filled" onclick="app.loadDashboardData(true, true)">
             <span class="material-icons">refresh</span> Refresh
           </button>
           <button class="button text" onclick="app.logout()">
@@ -548,7 +601,6 @@
         </button>
       </div>
 
-      <!-- ✅ NEW: Debug info banner showing data counts -->
       <div class="debug-banner" id="debug-banner" style="display:none;">
         <span>Raw Active Time Rows: <strong id="dbg-raw">0</strong></span>
         <span>Unique User-Days: <strong id="dbg-userdays">0</strong></span>
@@ -558,24 +610,38 @@
       </div>
 
       <div class="stats-row">
-        <div class="stat-card" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
+        <!--
+          ✅ FIX: stat cards no longer call filterByCategory on click.
+          الأرقام دلوقتي بتتحسب دايماً على ALL processed data
+          بغض النظر عن أي category filter تانية عاملها.
+          لو عايز تفلتر، استخدم dropdown فوق.
+        -->
+        <div class="stat-card" data-cat="under-6.5">
           <span class="label">Under 6.5h</span>
-          <span class="value" id="stat-under">0</span>
+          <span class="value" id="stat-under">
+            <span class="skeleton skeleton-value"></span>
+          </span>
           <span class="sub-label" id="stat-under-sub">unique users</span>
         </div>
-        <div class="stat-card" data-cat="base-6.5-8" onclick="app.filterByCategory('base-6.5-8')">
+        <div class="stat-card" data-cat="base-6.5-8">
           <span class="label">Base Shift 6.5-8h</span>
-          <span class="value" id="stat-base">0</span>
+          <span class="value" id="stat-base">
+            <span class="skeleton skeleton-value"></span>
+          </span>
           <span class="sub-label" id="stat-base-sub">unique users</span>
         </div>
-        <div class="stat-card" data-cat="ot-2hr" onclick="app.filterByCategory('ot-2hr')">
+        <div class="stat-card" data-cat="ot-2hr">
           <span class="label">OT 8-10h</span>
-          <span class="value" id="stat-ot2">0</span>
+          <span class="value" id="stat-ot2">
+            <span class="skeleton skeleton-value"></span>
+          </span>
           <span class="sub-label" id="stat-ot2-sub">unique users</span>
         </div>
-        <div class="stat-card" data-cat="ot-4hr" onclick="app.filterByCategory('ot-4hr')">
+        <div class="stat-card" data-cat="ot-4hr">
           <span class="label">OT 10-12h</span>
-          <span class="value" id="stat-ot4">0</span>
+          <span class="value" id="stat-ot4">
+            <span class="skeleton skeleton-value"></span>
+          </span>
           <span class="sub-label" id="stat-ot4-sub">unique users</span>
         </div>
       </div>
@@ -611,8 +677,27 @@
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5sUvifNlxDduQCtcNek-UY3RlhhcQUhkfDKDwRxub_BgbriFIVSpiNgknLsgKVn9T7A/exec';
     const AUTO_REFRESH_MS = 60000;
 
-    // ✅ VALID ATTENDANCE CODES — only these count as "present"
+    // ✅ Cache TTL: 55 ثانية (أقل من auto-refresh بشوية)
+    const CACHE_TTL_MS = 55000;
+    const CACHE_KEY    = 'atp_data_cache';
+
     const VALID_ATTENDANCE = ['P', 'PT', 'TP'];
+
+    // ── Progress bar helper ────────────────────────────────────────────────
+    const progressBar = {
+      el: null,
+      _t: null,
+      init() { this.el = document.getElementById('refresh-bar'); },
+      set(pct) {
+        if (!this.el) return;
+        this.el.style.width = pct + '%';
+      },
+      done() {
+        this.set(100);
+        clearTimeout(this._t);
+        this._t = setTimeout(() => { this.set(0); }, 400);
+      }
+    };
 
     class App {
       constructor() {
@@ -625,9 +710,11 @@
           currentCategory: '',
           isLoading: false,
           lastUpdated: null,
+          fromCache: false,
           debugStats: { rawRows: 0, userDays: 0, matched: 0, unmatched: 0 }
         };
         this.autoRefreshTimer = null;
+        progressBar.init();
         this.init();
       }
 
@@ -675,20 +762,23 @@
         url.searchParams.set('action', action);
         Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
         const res = await fetch(url.toString());
-        if (!res.ok) throw new Error('Network error');
+        if (!res.ok) throw new Error('Network error ' + res.status);
         return res.json();
       }
 
       async login() {
-        const user = document.getElementById('username').value.trim();
-        const pass = document.getElementById('password').value.trim();
+        const user  = document.getElementById('username').value.trim();
+        const pass  = document.getElementById('password').value.trim();
         const errorEl = document.getElementById('login-error');
         errorEl.style.display = 'none';
 
         this.setLoading(true);
         try {
           const users = await this.fetchAPI('users');
-          const found = users.find(u => u[0] && u[0].toString().trim() === user && u[1] && u[1].toString().trim() === pass);
+          const found = users.find(u =>
+            u[0] && u[0].toString().trim() === user &&
+            u[1] && u[1].toString().trim() === pass
+          );
           if (found) {
             localStorage.setItem('atp_session', JSON.stringify({ user, time: Date.now() }));
             this.showDashboard();
@@ -703,71 +793,142 @@
 
       logout() {
         localStorage.removeItem('atp_session');
+        localStorage.removeItem(CACHE_KEY);
         if (this.autoRefreshTimer) clearInterval(this.autoRefreshTimer);
         location.reload();
       }
 
       showLogin() {
-        document.getElementById('login-view').style.display = 'flex';
+        document.getElementById('login-view').style.display  = 'flex';
         document.getElementById('dashboard-view').style.display = 'none';
       }
 
       showDashboard() {
-        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('login-view').style.display   = 'none';
         document.getElementById('dashboard-view').style.display = 'flex';
-        this.loadDashboardData(true);
+
+        // ✅ PERFORMANCE: عرض cache فوراً لو موجود، ثم refresh في الخلفية
+        this.loadDashboardData(true, false);
+
         this.autoRefreshTimer = setInterval(() => {
-          this.loadDashboardData(false);
+          this.loadDashboardData(false, true);
         }, AUTO_REFRESH_MS);
       }
 
-      async loadDashboardData(showLoading = true) {
-        if (showLoading) this.setLoading(true);
-        try {
-          const [activeTime, teams] = await Promise.all([
-            this.fetchAPI('activeTime'),
-            this.fetchAPI('teams')
-          ]);
+      // ─────────────────────────────────────────────────────────────────────
+      // ✅ PERFORMANCE: loadDashboardData مع cache-first strategy
+      //    forceRefresh = true  → يتجاهل الـ cache ويجيب بيانات جديدة
+      //    forceRefresh = false → يعرض cache فوراً لو موجود، ثم يحدّث
+      // ─────────────────────────────────────────────────────────────────────
+      async loadDashboardData(showLoading = true, forceRefresh = false) {
+        // 1. حاول تعرض cache أولاً لو مش force refresh
+        if (!forceRefresh) {
+          const cached = this.readCache();
+          if (cached) {
+            this.state.raw       = cached.raw;
+            this.state.fromCache = true;
+            this.processData();
+            this.populateDateFilter();
+            this.applyFilters();
+            this.updateLastUpdated(true);
 
-          const [morning, night, overnight] = await Promise.all([
+            // ثم اجلب بيانات جديدة في الخلفية بدون spinner
+            this.fetchAndUpdate(false);
+            return;
+          }
+        }
+
+        // 2. لا يوجد cache أو force refresh → جلب طازج مع spinner
+        if (showLoading) this.setLoading(true);
+        await this.fetchAndUpdate(true);
+        if (showLoading) this.setLoading(false);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // ✅ PERFORMANCE: كل الـ 5 calls بتحصل بشكل parallel كامل
+      // ─────────────────────────────────────────────────────────────────────
+      async fetchAndUpdate(showProgress = true) {
+        try {
+          if (showProgress) progressBar.set(10);
+
+          // ✅ كل الـ calls في Promise.all واحدة — أقصى parallelism
+          const [activeTime, teams, morning, night, overnight] = await Promise.all([
+            this.fetchAPI('activeTime'),
+            this.fetchAPI('teams'),
             this.fetchAPI('attendance', { tab: 'Morning' }),
             this.fetchAPI('attendance', { tab: 'Night' }),
             this.fetchAPI('attendance', { tab: 'Overnight' })
           ]);
 
-          this.state.raw = {
-            users: this.state.raw.users,
+          if (showProgress) progressBar.set(70);
+
+          const raw = {
             activeTime,
             teams,
             attendance: { Morning: morning, Night: night, Overnight: overnight }
           };
 
+          this.state.raw       = raw;
+          this.state.fromCache = false;
+
+          // حفظ في الـ cache
+          this.writeCache(raw);
+
           this.processData();
           this.populateDateFilter();
           this.applyFilters();
-          this.updateLastUpdated();
+          this.updateLastUpdated(false);
+
+          if (showProgress) progressBar.done();
         } catch (e) {
           console.error(e);
-          if (showLoading) alert('Failed to load data: ' + e.message);
+          progressBar.done();
+          if (showProgress) alert('Failed to load data: ' + e.message);
         }
-        if (showLoading) this.setLoading(false);
       }
 
-      updateLastUpdated() {
-        const now = new Date();
-        this.state.lastUpdated = now;
+      // ─────────────────────────────────────────────────────────────────────
+      // ✅ Cache helpers
+      // ─────────────────────────────────────────────────────────────────────
+      writeCache(raw) {
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            ts: Date.now(),
+            raw
+          }));
+        } catch (e) {
+          // localStorage قد يكون ممتلئ — مش مشكلة
+          console.warn('Cache write failed:', e.message);
+        }
+      }
+
+      readCache() {
+        try {
+          const stored = localStorage.getItem(CACHE_KEY);
+          if (!stored) return null;
+          const { ts, raw } = JSON.parse(stored);
+          if (Date.now() - ts > CACHE_TTL_MS) return null; // منتهي الصلاحية
+          return { raw };
+        } catch {
+          return null;
+        }
+      }
+
+      updateLastUpdated(fromCache) {
+        const now    = new Date();
         const timeStr = now.toLocaleTimeString();
-        document.getElementById('last-updated').textContent = 'Last updated: ' + timeStr + ' (Auto-refresh ON)';
+        const badge   = fromCache
+          ? '<span class="cache-badge from-cache">⚡ cached</span>'
+          : '<span class="cache-badge live">🔄 live</span>';
+        document.getElementById('last-updated').innerHTML =
+          'Last updated: ' + timeStr + badge + ' · Auto-refresh ON';
       }
 
-      // ✅ FIX: Format date string to match attendance header format (e.g. "7-Jun")
       fmtDate(dStr) {
         if (!dStr) return '';
-        // Handle "2026, 06-07" or "2026-06-07" format from Active Time sheet
         const m = dStr.match(/(\d{4})[,\s-]+(\d{1,2})[,\s-]+(\d{1,2})/);
         if (m) {
           const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
-          // Format: "7-Jun" (no leading zero on day)
           return d.getDate() + '-' + d.toLocaleString('en', { month: 'short' });
         }
         return dStr;
@@ -776,8 +937,8 @@
       processData() {
         const { activeTime, teams, attendance } = this.state.raw;
 
-        // ── 1. Build Teams map ───────────────────────────────────────────────
-        const teamsMap = new Map();
+        // ── 1. Teams map ─────────────────────────────────────────────────────
+        const teamsMap   = new Map();
         const teamsOrder = [];
         teams.forEach(row => {
           const user = row[0] ? row[0].toString().toLowerCase().trim() : '';
@@ -791,14 +952,13 @@
           });
         });
 
-        // ── 2. Sum Interact + Overhead columns per user per date ─────────────
-        // Active Time columns: [0]=Date [1]=User [2]=MSL Interact [3]=MSL Overhead ...
+        // ── 2. Sum per user-day ───────────────────────────────────────────────
         const userDayMap = new Map();
         const datesSet   = new Set();
 
         activeTime.forEach(row => {
-          const dateRaw = row[0] ? row[0].toString().trim() : '';
-          const user    = row[1] ? row[1].toString().toLowerCase().trim() : '';
+          const dateRaw  = row[0] ? row[0].toString().trim() : '';
+          const user     = row[1] ? row[1].toString().toLowerCase().trim() : '';
           const interact = parseFloat(row[2]) || 0;
           const overhead = parseFloat(row[3]) || 0;
           const total    = interact + overhead;
@@ -809,34 +969,28 @@
           const key = user + '|' + dateRaw;
           if (!userDayMap.has(key)) {
             userDayMap.set(key, {
-              user,
-              date:         dateRaw,
-              dateFmt:      this.fmtDate(dateRaw),   // ✅ pre-format once
-              hours:        0,
-              attendance:   '',
-              attendanceTab: ''
+              user, date: dateRaw,
+              dateFmt: this.fmtDate(dateRaw),
+              hours: 0, attendance: '', attendanceTab: ''
             });
           }
           userDayMap.get(key).hours += total;
         });
 
-        // Track raw counts for debug
         this.state.debugStats.rawRows  = activeTime.length;
         this.state.debugStats.userDays = userDayMap.size;
 
-        // ── 3. Match attendance for each user-day across all 3 tabs ──────────
-        // Build a fast lookup: tabName → Map<formattedDate, colIndex>
+        // ── 3. Attendance matching ────────────────────────────────────────────
         const attColIndex = {};
-        const tabConfigs = {};
+        const tabConfigs  = {};
         for (const [tabName, tabData] of Object.entries(attendance)) {
           if (!tabData || !tabData.headers) continue;
           attColIndex[tabName] = new Map();
           tabData.headers.forEach((h, i) => {
             if (h) attColIndex[tabName].set(h.toString().trim(), i);
           });
-          // حفظ إعدادات الأعمدة الخاصة بكل Tab
           tabConfigs[tabName] = {
-            userColIdx: tabData.userColIdx !== undefined ? tabData.userColIdx : 0,
+            userColIdx:      tabData.userColIdx      !== undefined ? tabData.userColIdx      : 0,
             dateStartColIdx: tabData.dateStartColIdx !== undefined ? tabData.dateStartColIdx : 3
           };
         }
@@ -844,22 +998,18 @@
         let matched = 0, unmatched = 0;
 
         userDayMap.forEach(val => {
-          const target = val.dateFmt;   // e.g. "7-Jun"
+          const target = val.dateFmt;
           let found = false;
 
           for (const [tabName, tabData] of Object.entries(attendance)) {
             if (!tabData || !tabData.rows) continue;
-
             const colMap = attColIndex[tabName];
             if (!colMap || !colMap.has(target)) continue;
 
-            const headerIdx = colMap.get(target);
-            const config = tabConfigs[tabName];
-            
-            // حساب العمود الفعلي للتاريخ بناءً على بداية أعمدة التواريخ في الـ Tab
+            const headerIdx   = colMap.get(target);
+            const config      = tabConfigs[tabName];
             const actualColIdx = config.dateStartColIdx + headerIdx;
 
-            // البحث عن اليوزر في العمود المحدد له في هذا الـ Tab
             const userRow = tabData.rows.find(r => {
               const cellVal = r[config.userColIdx];
               return cellVal && cellVal.toString().toLowerCase().trim() === val.user;
@@ -868,14 +1018,13 @@
             if (userRow && actualColIdx < userRow.length) {
               const cell = userRow[actualColIdx] ? userRow[actualColIdx].toString().trim() : '';
               if (VALID_ATTENDANCE.includes(cell)) {
-                val.attendance    = cell;
-                val.attendanceTab = tabName;
+                val.attendance     = cell;
+                val.attendanceTab  = tabName;
                 found = true;
                 break;
               }
             }
           }
-
           if (found) matched++; else unmatched++;
         });
 
@@ -883,20 +1032,19 @@
         this.state.debugStats.unmatched = unmatched;
         this.updateDebugBanner();
 
-        // ── 4. Sort users by Teams sheet order ───────────────────────────────
+        // ── 4. Sort by Teams order ────────────────────────────────────────────
         const activeUsers = [...new Set([...userDayMap.values()].map(v => v.user))];
         activeUsers.sort((a, b) => {
-          const ia = teamsOrder.indexOf(a);
-          const ib = teamsOrder.indexOf(b);
+          const ia = teamsOrder.indexOf(a), ib = teamsOrder.indexOf(b);
           if (ia === -1 && ib === -1) return 0;
           if (ia === -1) return 1;
           if (ib === -1) return -1;
           return ia - ib;
         });
 
-        // ── 5. Build processed[] — ✅ ONLY include attendance-matched records ─
+        // ── 5. Build processed[] ─────────────────────────────────────────────
         const processed = [];
-        const dates     = [...datesSet].sort();
+        const dates = [...datesSet].sort();
 
         activeUsers.forEach(user => {
           const tInfo = teamsMap.get(user) || {};
@@ -904,20 +1052,17 @@
             const key  = user + '|' + date;
             const data = userDayMap.get(key);
             if (!data) return;
-
-            // ✅ KEY FIX: Skip users with no valid attendance match
             if (!VALID_ATTENDANCE.includes(data.attendance)) return;
 
             const hrs = data.hours;
             let cat;
-            if      (hrs < 6.5)  cat = 'under-6.5';
-            else if (hrs < 8)    cat = 'base-6.5-8';
-            else if (hrs < 10)   cat = 'ot-2hr';
-            else                 cat = 'ot-4hr';
+            if      (hrs < 6.5) cat = 'under-6.5';
+            else if (hrs < 8)   cat = 'base-6.5-8';
+            else if (hrs < 10)  cat = 'ot-2hr';
+            else                cat = 'ot-4hr';
 
             processed.push({
-              date,
-              user,
+              date, user,
               tlQtc:        tInfo.tlQtc    || '',
               shift:        tInfo.shift    || '',
               pcNo:         tInfo.pcNo     || '',
@@ -933,7 +1078,7 @@
         this.state.processed = processed;
         this.state.debugStats.processed = processed.length;
 
-        // ── 6. Calculate Repeated Under 6.5 ─────────────────────────────────
+        // ── 6. Repeated under 6.5 ────────────────────────────────────────────
         const underMap = {};
         processed.filter(r => r.category === 'under-6.5').forEach(r => {
           if (!underMap[r.user]) {
@@ -976,10 +1121,10 @@
 
       filterByShift(shift) {
         this.state.currentShift = shift;
-        const cardsView   = document.getElementById('cards-view');
+        const cardsView    = document.getElementById('cards-view');
         const repeatedView = document.getElementById('repeated-view');
-        const statsRow    = document.querySelector('.stats-row');
-        const debugBanner = document.getElementById('debug-banner');
+        const statsRow     = document.querySelector('.stats-row');
+        const debugBanner  = document.getElementById('debug-banner');
 
         if (shift === 'repeated') {
           cardsView.style.display    = 'none';
@@ -997,17 +1142,8 @@
         this.applyFilters();
       }
 
-      filterByCategory(cat) {
-        this.state.currentCategory = this.state.currentCategory === cat ? '' : cat;
-        this.applyFilters();
-        this.updateStatCardsUI();
-      }
-
-      updateStatCardsUI() {
-        document.querySelectorAll('.stat-card').forEach(card => {
-          card.classList.toggle('active-filter', card.dataset.cat === this.state.currentCategory);
-        });
-      }
+      // ✅ FIX: filterByCategory محذوف تماماً من onclick على stat cards
+      // الـ stat cards دلوقتي display-only — الفلترة بالـ dropdown بس
 
       applyFilters() {
         const singleDate = document.getElementById('filter-date').value;
@@ -1028,12 +1164,10 @@
           });
         }
 
-        // Single date filter
         if (singleDate) {
           data = data.filter(r => r.date === singleDate);
         }
 
-        // Date range filter
         if (fromDate || toDate) {
           data = data.filter(r => {
             const d    = this.parseDate(r.date);
@@ -1045,10 +1179,8 @@
           });
         }
 
-        // Category filter (from dropdown OR stat card click)
-        const catFilter = category || this.state.currentCategory;
-        if (catFilter) {
-          data = data.filter(r => r.category === catFilter);
+        if (category) {
+          data = data.filter(r => r.category === category);
         }
 
         this.state.filtered = data;
@@ -1068,31 +1200,62 @@
         document.getElementById('filter-to').value       = '';
         document.getElementById('filter-category').value = '';
         this.state.currentCategory = '';
-        this.updateStatCardsUI();
         this.applyFilters();
       }
 
-      // ✅ FIX: Stats now count unique users (per date if single date selected, globally if multiple)
+      // ─────────────────────────────────────────────────────────────────────
+      // ✅ FIX: renderStats دلوقتي بتحسب على processed كامل (مش filtered)
+      //    عشان الأرقام دايماً تبين صح بغض النظر عن أي فلتر category
+      //    الـ shift filter بس هو اللي بياثر عليهم
+      // ─────────────────────────────────────────────────────────────────────
       renderStats() {
-        const data       = this.state.filtered;
-        const singleDate = document.getElementById('filter-date').value;
-        const cats       = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
-        const ids        = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
-        const subIds     = ['stat-under-sub', 'stat-base-sub', 'stat-ot2-sub', 'stat-ot4-sub'];
+        // ✅ KEY FIX: نحسب الأرقام من processed + shift filter فقط
+        // مش من filtered — عشان category filter مايخليش الباقين 0
+        let baseData = this.state.processed;
 
-        // Determine if a single date is active (either via dropdown or date range = same day)
+        if (this.state.currentShift !== 'all' && this.state.currentShift !== 'repeated') {
+          baseData = baseData.filter(r => {
+            const s = (r.shift || '').toString().trim().toUpperCase();
+            if (this.state.currentShift === 'morning')   return s === 'M';
+            if (this.state.currentShift === 'night')     return s === 'N';
+            if (this.state.currentShift === 'overnight') return s === 'ON';
+            return false;
+          });
+        }
+
+        // تطبيق date filters على baseData أيضاً للحفاظ على الـ context
+        const singleDate = document.getElementById('filter-date').value;
+        const fromDate   = document.getElementById('filter-from').value;
+        const toDate     = document.getElementById('filter-to').value;
+
+        if (singleDate) {
+          baseData = baseData.filter(r => r.date === singleDate);
+        }
+        if (fromDate || toDate) {
+          baseData = baseData.filter(r => {
+            const d    = this.parseDate(r.date);
+            const from = fromDate ? new Date(fromDate) : null;
+            const to   = toDate   ? new Date(toDate)   : null;
+            if (from && d < from) return false;
+            if (to   && d > to)   return false;
+            return true;
+          });
+        }
+
         const isSingleDay = !!singleDate;
+        const cats  = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
+        const ids   = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
+        const subIds = ['stat-under-sub', 'stat-base-sub', 'stat-ot2-sub', 'stat-ot4-sub'];
 
         cats.forEach((cat, i) => {
-          const catData = data.filter(r => r.category === cat);
+          const count = new Set(
+            baseData.filter(r => r.category === cat).map(r => r.user)
+          ).size;
 
-          // ✅ Always count unique users (a user can only appear once per day in processed[])
-          const uniqueUsers = new Set(catData.map(r => r.user)).size;
-
-          document.getElementById(ids[i]).textContent    = uniqueUsers;
+          document.getElementById(ids[i]).textContent    = count;
           document.getElementById(subIds[i]).textContent = isSingleDay
             ? 'users today'
-            : uniqueUsers === 1 ? 'unique user' : 'unique users';
+            : count === 1 ? 'unique user' : 'unique users';
         });
       }
 
@@ -1100,7 +1263,6 @@
         const container = document.getElementById('cards-container');
         container.innerHTML = '';
 
-        // Group by user
         const grouped = {};
         this.state.filtered.forEach(r => {
           if (!grouped[r.user]) grouped[r.user] = [];
