@@ -75,7 +75,7 @@
     .label-medium { font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
     .label-small { font-size: 11px; font-weight: 500; line-height: 16px; letter-spacing: 0.5px; }
 
-    /* ── Spinner (مصغر لتسريع الإحساس) ── */
+    /* ── Spinner ── */
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(15,23,42,0.85);
       display: flex; align-items: center; justify-content: center;
@@ -278,7 +278,6 @@
       border-color: var(--md-sys-color-primary);
     }
 
-    /* ── Stats layout: صفين — summary row فوق، category row تحت ── */
     .stats-section { margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
 
     .summary-row {
@@ -290,7 +289,6 @@
       gap: 16px;
     }
 
-    /* ── Base card style (مشترك) ── */
     .stat-card {
       background: var(--md-sys-color-surface);
       border: 1px solid var(--md-sys-color-outline-variant);
@@ -312,7 +310,6 @@
       letter-spacing: 0.3px;
     }
 
-    /* ── Summary cards (Total Hours / Production / Avg) — لا يقبلوا click ── */
     .stat-card.summary {
       cursor: default;
       border-left: 4px solid var(--md-sys-color-tertiary);
@@ -326,7 +323,6 @@
     .stat-card.summary[data-summary="avg-hours"]   { border-left-color: var(--md-sys-color-tertiary); }
     .stat-card.summary[data-summary="avg-hours"] .value   { color: var(--md-sys-color-tertiary); }
 
-    /* ── Category cards — قابلة للضغط ── */
     .stat-card.category {
       cursor: pointer;
     }
@@ -475,7 +471,6 @@
       color: var(--md-sys-color-primary);
     }
 
-    /* ── Cache indicator badge ── */
     .cache-badge {
       display: inline-flex; align-items: center; gap: 4px;
       font-size: 10px; font-weight: 500; padding: 2px 8px;
@@ -513,7 +508,6 @@
 </head>
 <body>
 
-  <!-- Refresh progress bar -->
   <div class="refresh-bar" id="refresh-bar"></div>
 
   <div id="loading" class="loading-overlay" style="display:none">
@@ -639,10 +633,8 @@
         <span>Processed Records: <strong id="dbg-processed">0</strong></span>
       </div>
 
-      <!-- ✅ NEW: Stats section — summary row + category row -->
       <div class="stats-section" id="stats-section">
 
-        <!-- صف 1: ملخص إجمالي (Total Hours / Production / Avg) -->
         <div class="summary-row">
           <div class="stat-card summary" data-summary="total-hours">
             <span class="label">
@@ -676,7 +668,6 @@
           </div>
         </div>
 
-        <!-- صف 2: categories (قابلة للضغط) -->
         <div class="stats-row">
           <div class="stat-card category" data-cat="under-6.5" onclick="app.filterByCategory('under-6.5')">
             <span class="label">Under 6.5h</span>
@@ -741,13 +732,11 @@
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5sUvifNlxDduQCtcNek-UY3RlhhcQUhkfDKDwRxub_BgbriFIVSpiNgknLsgKVn9T7A/exec';
     const AUTO_REFRESH_MS = 60000;
 
-    // ✅ Cache TTL: 55 ثانية (أقل من auto-refresh بشوية)
     const CACHE_TTL_MS = 55000;
     const CACHE_KEY    = 'atp_data_cache';
 
     const VALID_ATTENDANCE = ['P', 'PT', 'TP'];
 
-    // ── Progress bar helper ────────────────────────────────────────────────
     const progressBar = {
       el: null,
       _t: null,
@@ -871,7 +860,6 @@
         document.getElementById('login-view').style.display   = 'none';
         document.getElementById('dashboard-view').style.display = 'flex';
 
-        // ✅ PERFORMANCE: عرض cache فوراً لو موجود، ثم refresh في الخلفية
         this.loadDashboardData(true, false);
 
         this.autoRefreshTimer = setInterval(() => {
@@ -879,13 +867,7 @@
         }, AUTO_REFRESH_MS);
       }
 
-      // ─────────────────────────────────────────────────────────────────────
-      // ✅ PERFORMANCE: loadDashboardData مع cache-first strategy
-      //    forceRefresh = true  → يتجاهل الـ cache ويجيب بيانات جديدة
-      //    forceRefresh = false → يعرض cache فوراً لو موجود، ثم يحدّث
-      // ─────────────────────────────────────────────────────────────────────
       async loadDashboardData(showLoading = true, forceRefresh = false) {
-        // 1. حاول تعرض cache أولاً لو مش force refresh
         if (!forceRefresh) {
           const cached = this.readCache();
           if (cached) {
@@ -896,26 +878,20 @@
             this.applyFilters();
             this.updateLastUpdated(true);
 
-            // ثم اجلب بيانات جديدة في الخلفية بدون spinner
             this.fetchAndUpdate(false);
             return;
           }
         }
 
-        // 2. لا يوجد cache أو force refresh → جلب طازج مع spinner
         if (showLoading) this.setLoading(true);
         await this.fetchAndUpdate(true);
         if (showLoading) this.setLoading(false);
       }
 
-      // ─────────────────────────────────────────────────────────────────────
-      // ✅ PERFORMANCE: كل الـ 5 calls بتحصل بشكل parallel كامل
-      // ─────────────────────────────────────────────────────────────────────
       async fetchAndUpdate(showProgress = true) {
         try {
           if (showProgress) progressBar.set(10);
 
-          // ✅ كل الـ calls في Promise.all واحدة — أقصى parallelism
           const [activeTime, teams, morning, night, overnight] = await Promise.all([
             this.fetchAPI('activeTime'),
             this.fetchAPI('teams'),
@@ -935,7 +911,6 @@
           this.state.raw       = raw;
           this.state.fromCache = false;
 
-          // حفظ في الـ cache
           this.writeCache(raw);
 
           this.processData();
@@ -951,9 +926,6 @@
         }
       }
 
-      // ─────────────────────────────────────────────────────────────────────
-      // ✅ Cache helpers
-      // ─────────────────────────────────────────────────────────────────────
       writeCache(raw) {
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -961,7 +933,6 @@
             raw
           }));
         } catch (e) {
-          // localStorage قد يكون ممتلئ — مش مشكلة
           console.warn('Cache write failed:', e.message);
         }
       }
@@ -971,7 +942,7 @@
           const stored = localStorage.getItem(CACHE_KEY);
           if (!stored) return null;
           const { ts, raw } = JSON.parse(stored);
-          if (Date.now() - ts > CACHE_TTL_MS) return null; // منتهي الصلاحية
+          if (Date.now() - ts > CACHE_TTL_MS) return null; 
           return { raw };
         } catch {
           return null;
@@ -1001,7 +972,6 @@
       processData() {
         const { activeTime, teams, attendance } = this.state.raw;
 
-        // ── 1. Teams map ─────────────────────────────────────────────────────
         const teamsMap   = new Map();
         const teamsOrder = [];
         teams.forEach(row => {
@@ -1016,7 +986,6 @@
           });
         });
 
-        // ── 2. Sum per user-day ───────────────────────────────────────────────
         const userDayMap = new Map();
         const datesSet   = new Set();
 
@@ -1044,7 +1013,6 @@
         this.state.debugStats.rawRows  = activeTime.length;
         this.state.debugStats.userDays = userDayMap.size;
 
-        // ── 3. Attendance matching ────────────────────────────────────────────
         const attColIndex = {};
         const tabConfigs  = {};
         for (const [tabName, tabData] of Object.entries(attendance)) {
@@ -1096,7 +1064,6 @@
         this.state.debugStats.unmatched = unmatched;
         this.updateDebugBanner();
 
-        // ── 4. Sort by Teams order ────────────────────────────────────────────
         const activeUsers = [...new Set([...userDayMap.values()].map(v => v.user))];
         activeUsers.sort((a, b) => {
           const ia = teamsOrder.indexOf(a), ib = teamsOrder.indexOf(b);
@@ -1106,7 +1073,6 @@
           return ia - ib;
         });
 
-        // ── 5. Build processed[] ─────────────────────────────────────────────
         const processed = [];
         const dates = [...datesSet].sort();
 
@@ -1142,7 +1108,6 @@
         this.state.processed = processed;
         this.state.debugStats.processed = processed.length;
 
-        // ── 6. Repeated under 6.5 ────────────────────────────────────────────
         const underMap = {};
         processed.filter(r => r.category === 'under-6.5').forEach(r => {
           if (!underMap[r.user]) {
@@ -1206,11 +1171,8 @@
         this.applyFilters();
       }
 
-      // ✅ FIX: filterByCategory — الكاردز بتتفلتر لكن الأرقام في stat cards
-      // بتفضل صح لأن renderStats بتحسب من processed مش من filtered
       filterByCategory(cat) {
         this.state.currentCategory = this.state.currentCategory === cat ? '' : cat;
-        // sync the dropdown to match
         document.getElementById('filter-category').value = this.state.currentCategory;
         this.applyFilters();
         this.updateStatCardsUI();
@@ -1230,7 +1192,6 @@
 
         let data = this.state.processed;
 
-        // Shift filter
         if (this.state.currentShift !== 'all' && this.state.currentShift !== 'repeated') {
           data = data.filter(r => {
             const s = (r.shift || '').toString().trim().toUpperCase();
@@ -1281,13 +1242,7 @@
         this.applyFilters();
       }
 
-      // ─────────────────────────────────────────────────────────────────────
-      // renderStats: حساب الـ 7 كروت (3 summary + 4 category)
-      // Summary  → بتحسب من baseData (shift + date filters بس، بدون category)
-      // Category → بتحسب من baseData كمان (عشان الأرقام تفضل صح دايماً)
-      // ─────────────────────────────────────────────────────────────────────
       renderStats() {
-        // baseData = processed + shift filter + date filters (بدون category filter)
         let baseData = this.state.processed;
 
         if (this.state.currentShift !== 'all' && this.state.currentShift !== 'repeated') {
@@ -1321,7 +1276,6 @@
         const isSingleDay = !!singleDate;
         const dateLabel   = isSingleDay ? 'users today' : 'unique users';
 
-        // ── 1. Category cards ─────────────────────────────────────────────
         const cats   = ['under-6.5', 'base-6.5-8', 'ot-2hr', 'ot-4hr'];
         const ids    = ['stat-under', 'stat-base', 'stat-ot2', 'stat-ot4'];
         const subIds = ['stat-under-sub', 'stat-base-sub', 'stat-ot2-sub', 'stat-ot4-sub'];
@@ -1334,20 +1288,17 @@
           document.getElementById(subIds[i]).textContent = count === 1 ? 'unique user' : dateLabel;
         });
 
-        // ── 2. Total Hours (C+D مجموع ساعات كل اليوزرات في baseData) ──────
         const totalHours = baseData.reduce((sum, r) => sum + r.hours, 0);
         document.getElementById('stat-total-hours').textContent =
           totalHours > 0 ? totalHours.toFixed(2) + 'h' : '0h';
         document.getElementById('stat-total-hours-sub').textContent =
           isSingleDay ? 'today\'s total' : 'across all days';
 
-        // ── 3. Total Production (كل اليوزرات الـ unique بغض النظر عن category) ─
         const totalProduction = new Set(baseData.map(r => r.user)).size;
         document.getElementById('stat-production').textContent = totalProduction;
         document.getElementById('stat-production-sub').textContent =
           isSingleDay ? 'active today' : 'active labelers';
 
-        // ── 4. Avg Hours per Labeler ──────────────────────────────────────
         const avgHours = totalProduction > 0 ? totalHours / totalProduction : 0;
         document.getElementById('stat-avg-hours').textContent =
           avgHours > 0 ? avgHours.toFixed(2) + 'h' : '0h';
